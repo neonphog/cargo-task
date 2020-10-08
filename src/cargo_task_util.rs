@@ -2,27 +2,6 @@
 
 use std::{collections::BTreeMap, ffi::OsString, path::PathBuf, rc::Rc};
 
-thread_local! {
-    static CT_ENV: Rc<CTEnv> = {
-        let cargo_path = std::env::var_os("CARGO")
-            .map(PathBuf::from)
-            .expect("CARGO binary path not set in environment");
-        let work_dir = std::env::var_os("CT_WORK_DIR")
-            .map(PathBuf::from)
-            .expect("CT_WORK_DIR environment variable not set");
-        let cargo_task_path = std::env::var_os("CT_PATH")
-            .map(PathBuf::from)
-            .expect("CT_PATH environment variable not set");
-        let tasks = enumerate_task_metadata();
-        Rc::new(CTEnv {
-            cargo_path,
-            work_dir,
-            cargo_task_path,
-            tasks,
-        })
-    };
-}
-
 /// Fetch the current CTEnv
 pub fn ct_env() -> Rc<CTEnv> {
     CT_ENV.with(|env| env.clone())
@@ -40,6 +19,12 @@ pub struct CTEnv {
     /// The root of the cargo task execution environment.
     pub work_dir: PathBuf,
 
+    /// Use colored log output.
+    pub with_color: bool,
+
+    /// Current args to cargo-task.
+    pub cur_args: Vec<String>,
+
     /// All tasks defined in the task directory.
     pub tasks: BTreeMap<String, CTTaskMeta>,
 }
@@ -55,15 +40,38 @@ impl CTEnv {
         cmd.stdin(std::process::Stdio::inherit());
         cmd.stdout(std::process::Stdio::inherit());
         cmd.stderr(std::process::Stdio::inherit());
-        if !cmd
-            .spawn()
-            .expect("failed to execute command")
-            .wait()
-            .expect("failed to execute command")
-            .success()
-        {
-            panic!("command exited non-zero");
+        let mut spawn = || {
+            if cmd
+                .spawn()
+                .map_err(|_| ())?
+                .wait()
+                .map_err(|_| ())?
+                .success()
+            {
+                Ok(())
+            } else {
+                Err(())
+            }
+        };
+        if spawn().is_err() {
+            self.fatal("failed to execute command");
         }
+    }
+
+    /// Log to stdout at INFO log level.
+    pub fn info(&self, text: &str) {
+        self.priv_log(LogLevel::Info, text);
+    }
+
+    /// Log to stderr at WARN log level.
+    pub fn warn(&self, text: &str) {
+        self.priv_log(LogLevel::Warn, text);
+    }
+
+    /// Log to stderr at FATAL log level and exit the process with error code.
+    pub fn fatal(&self, text: &str) -> ! {
+        self.priv_log(LogLevel::Fatal, text);
+        std::process::exit(1)
     }
 }
 
@@ -83,8 +91,116 @@ pub struct CTTaskMeta {
     pub task_deps: Vec<String>,
 }
 
+// -- private -- //
+
+thread_local! {
+    static CT_ENV: Rc<CTEnv> = priv_new_env();
+}
+
+fn priv_new_env() -> Rc<CTEnv> {
+    let with_color = std::env::var_os("CT_WITH_COLOR").is_some();
+    let fake_env_for_logging = CTEnv {
+        cargo_path: PathBuf::new(),
+        work_dir: PathBuf::new(),
+        cargo_task_path: PathBuf::new(),
+        with_color,
+        cur_args: Vec::with_capacity(0),
+        tasks: BTreeMap::new(),
+    };
+
+    let cargo_path = match std::env::var_os("CARGO").map(PathBuf::from) {
+        Some(cargo_path) => cargo_path,
+        None => fake_env_for_logging
+            .fatal("CARGO binary path not set in environment"),
+    };
+    let work_dir = match std::env::var_os("CT_WORK_DIR").map(PathBuf::from) {
+        Some(work_dir) => work_dir,
+        None => fake_env_for_logging
+            .fatal("CT_WORK_DIR environment variable not set"),
+    };
+    let cargo_task_path = match std::env::var_os("CT_PATH").map(PathBuf::from) {
+        Some(cargo_task_path) => cargo_task_path,
+        None => {
+            fake_env_for_logging.fatal("CT_PATH environment variable not set")
+        }
+    };
+    let cur_args = match std::env::var_os("CT_CUR_ARGS") {
+        Some(args) => args
+            .to_string_lossy()
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
+        None => Vec::with_capacity(0),
+    };
+    let tasks = match enumerate_task_metadata() {
+        Ok(tasks) => tasks,
+        Err(e) => fake_env_for_logging.fatal(e),
+    };
+
+    Rc::new(CTEnv {
+        cargo_path,
+        work_dir,
+        cargo_task_path,
+        with_color,
+        cur_args,
+        tasks,
+    })
+}
+
+impl CTEnv {
+    fn priv_log(&self, level: LogLevel, text: &str) {
+        for line in text.split('\n') {
+            self.priv_log_line(level, line);
+        }
+    }
+
+    fn priv_log_line(&self, level: LogLevel, text: &str) {
+        let task_name = std::env::var_os("CT_CUR_TASK")
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "".to_string());
+        let base = if self.with_color { "\x1b[97m" } else { "" };
+        let reset = if self.with_color { "\x1b[0m" } else { "" };
+        let (lvl, log) = match level {
+            LogLevel::Info => ("INFO", "\x1b[92m"),
+            LogLevel::Warn => ("WARN", "\x1b[93m"),
+            LogLevel::Fatal => ("FATAL", "\x1b[91m"),
+        };
+        let log = if self.with_color { log } else { "" };
+        if let LogLevel::Info = level {
+            println!(
+                "{}[ct:{}{}{}:{}]{} {}",
+                base, log, lvl, base, task_name, reset, text
+            );
+        } else {
+            eprintln!(
+                "{}[ct:{}{}{}:{}]{} {}",
+                base, log, lvl, base, task_name, reset, text
+            );
+        }
+    }
+}
+
+/// format! style helper for printing out info messages.
+#[macro_export]
+macro_rules! env_info {
+    ($env:ident, $($tt:tt)*) => { $env.info(&format!($($tt)*)); };
+}
+
+/// format! style helper for printing out warn messages.
+#[macro_export]
+macro_rules! env_warn {
+    ($env:ident, $($tt:tt)*) => { $env.warn(&format!($($tt)*)); };
+}
+
+/// format! style helper for printing out fatal messages.
+#[macro_export]
+macro_rules! env_fatal {
+    ($env:ident, $($tt:tt)*) => { $env.fatal(&format!($($tt)*)); };
+}
+
 /// Loads task metadata from environment.
-fn enumerate_task_metadata() -> BTreeMap<String, CTTaskMeta> {
+fn enumerate_task_metadata(
+) -> Result<BTreeMap<String, CTTaskMeta>, &'static str> {
     let mut out = BTreeMap::new();
 
     let env = std::env::vars_os().collect::<BTreeMap<OsString, OsString>>();
@@ -114,5 +230,12 @@ fn enumerate_task_metadata() -> BTreeMap<String, CTTaskMeta> {
         }
     }
 
-    out
+    Ok(out)
+}
+
+#[derive(Clone, Copy)]
+enum LogLevel {
+    Info,
+    Warn,
+    Fatal,
 }

@@ -14,23 +14,65 @@ const CARGO_TASK_UTIL_SRC: &[u8] = include_bytes!("cargo_task_util.rs");
 pub fn exec_cargo_task() {
     env_loader::load();
     let env = cargo_task_util::ct_env();
-    println!("env: {:#?}", env);
-    run_task(&env, "fmt-check");
-    run_task(&env, "clippy");
-    run_task(&env, "test");
+    env_info!(env, "cargo-task running...");
+
+    let mut task_list = Vec::new();
+    for task in env.cur_args.iter() {
+        if task == "--help" {
+            env_fatal!(env, "TODO - print out usage info!!");
+        }
+        fill_task_deps(&env, &mut task_list, task.to_string());
+    }
+    if task_list.is_empty() {
+        for (task, task_meta) in env.tasks.iter() {
+            if task_meta.default {
+                fill_task_deps(&env, &mut task_list, task.to_string());
+            }
+        }
+    }
+
+    env_info!(env, "task order: {:?}", task_list);
+
+    for task in task_list {
+        run_task(&env, &task);
+    }
+
+    env_info!(env, "cargo-task complete : )");
+}
+
+/// fill task deps
+fn fill_task_deps(
+    env: &cargo_task_util::CTEnv,
+    task_list: &mut Vec<String>,
+    task: String,
+) {
+    // TODO - We need some actual dependency tree shaking
+    //        this is just a quick naive dependency order.
+
+    if !env.tasks.contains_key(&task) {
+        env_fatal!(env, "invalid task name '{}'", task);
+    }
+    for dep in env.tasks.get(&task).unwrap().task_deps.iter() {
+        fill_task_deps(env, task_list, dep.to_string());
+    }
+    if !task_list.contains(&task) {
+        task_list.push(task);
+    }
 }
 
 /// run a specific task
 fn run_task(env: &cargo_task_util::CTEnv, task_name: &str) {
     let task = task_build(&env, task_name);
 
-    println!("# CARGO-TASK - '{}' #", task_name);
+    std::env::set_var("CT_CUR_TASK", task_name);
+    env_info!(env, "run_task");
 
     let mut cmd = std::process::Command::new(task);
     cmd.current_dir(&env.work_dir);
     env.exec(cmd);
 
-    println!("# CARGO-TASK - '{}' complete #", task_name);
+    env_info!(env, "run_task complete");
+    std::env::remove_var("CT_CUR_TASK");
 }
 
 /// build a specific task crate
@@ -41,22 +83,22 @@ fn task_build(env: &cargo_task_util::CTEnv, task_name: &str) -> PathBuf {
     let mut target_dir = env.work_dir.clone();
     target_dir.push("target");
 
-    let mut artefact_path = target_dir.clone();
-    artefact_path.push("release");
-    artefact_path.push(task_name);
+    let mut artifact_path = target_dir.clone();
+    artifact_path.push("release");
+    artifact_path.push(task_name);
 
-    if let Ok(meta) = std::fs::metadata(&artefact_path) {
-        let artefact_time = meta
+    if let Ok(meta) = std::fs::metadata(&artifact_path) {
+        let artifact_time = meta
             .modified()
             .expect("failed to get artifact modified time");
         let dir_time = get_newest_time(&task_dir);
 
-        if artefact_time >= dir_time {
-            return artefact_path;
+        if artifact_time >= dir_time {
+            return artifact_path;
         }
     }
 
-    println!("# CARGO-TASK - '{}' building #", task_name);
+    env_info!(env, "'{}' build", task_name);
 
     let mut workspace = env.cargo_task_path.clone();
     workspace.push("Cargo.toml");
@@ -77,7 +119,10 @@ members = [
     util.push("src");
     util.push("cargo_task_util.rs");
     let _ = std::fs::remove_file(&util);
-    std::fs::write(&util, CARGO_TASK_UTIL_SRC).expect("failed to write cargo_task_util.rs");
+    let mut content = b"#![allow(dead_code)]\n".to_vec();
+    content.extend_from_slice(CARGO_TASK_UTIL_SRC);
+    std::fs::write(&util, &content)
+        .expect("failed to write cargo_task_util.rs");
 
     let mut cmd = env.cargo();
     cmd.arg("build");
@@ -97,7 +142,7 @@ members = [
     let _ = std::fs::remove_file(&workspace);
     let _ = std::fs::remove_file(&util);
 
-    artefact_path
+    artifact_path
 }
 
 /// recursively get the newest update time for any file/dir

@@ -9,10 +9,13 @@ use std::{
 /// The .cargo-task directory name
 const CARGO_TASK_DIR: &str = ".cargo-task";
 
-fn set_env_if_none<N: AsRef<OsStr>, V: AsRef<OsStr>>(n: N, v: V) {
-    if std::env::var_os(n.as_ref()).is_none() {
-        std::env::set_var(n, v);
-    }
+#[cfg(windows)]
+const DEFAULT_WITH_COLOR: bool = false;
+#[cfg(not(windows))]
+const DEFAULT_WITH_COLOR: bool = true;
+
+fn set_env<N: AsRef<OsStr>, V: AsRef<OsStr>>(n: N, v: V) {
+    std::env::set_var(n, v);
 }
 
 /// Gather understanding of our cargo-task location.
@@ -22,24 +25,38 @@ pub fn load() {
     let cargo_path = std::env::var_os("CARGO")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("cargo"));
-    set_env_if_none("CARGO", cargo_path);
+    set_env("CARGO", cargo_path);
+
+    // work_dir
+    let work_dir = find_cargo_task_work_dir();
+    set_env("CT_WORK_DIR", &work_dir);
 
     // cargo task path
-    let work_dir = find_cargo_task_work_dir();
-    set_env_if_none("CT_WORK_DIR", &work_dir);
-
     let mut cargo_task_path = work_dir;
     cargo_task_path.push(CARGO_TASK_DIR);
-    set_env_if_none("CT_PATH", &cargo_task_path);
+    set_env("CT_PATH", &cargo_task_path);
+
+    // cli arguments
+    let mut args = std::env::args().collect::<Vec<_>>();
+    if args.len() >= 2 {
+        let start_idx = if args[1] == "task" { 2 } else { 1 };
+        args.drain(..start_idx);
+        set_env("CT_CUR_ARGS", args.join(" "));
+    }
+
+    // color?
+    if std::env::var_os("CT_NO_COLOR").is_none() && DEFAULT_WITH_COLOR {
+        set_env("CT_WITH_COLOR", "1");
+    };
 
     // load cargo-task tasks
     let tasks = enumerate_task_metadata(&cargo_task_path);
     for (_, task) in tasks {
         let path_name = format!("CT_TASK_{}_PATH", task.name);
-        set_env_if_none(&path_name, &task.path);
+        set_env(&path_name, &task.path);
         if task.default {
             let def_name = format!("CT_TASK_{}_DEFAULT", task.name);
-            set_env_if_none(&def_name, "1");
+            set_env(&def_name, "1");
         }
         let mut task_deps = "".to_string();
         for task_dep in task.task_deps.iter() {
@@ -50,7 +67,7 @@ pub fn load() {
         }
         if !task_deps.is_empty() {
             let deps_name = format!("CT_TASK_{}_TASK_DEPS", task.name);
-            set_env_if_none(&deps_name, &task_deps);
+            set_env(&deps_name, &task_deps);
         }
     }
 }
@@ -58,13 +75,16 @@ pub fn load() {
 /// Searches up the directories from the current dir,
 /// looking for a directory containing a '.cargo-task' directory.
 fn find_cargo_task_work_dir() -> PathBuf {
-    let mut cargo_task_path =
-        std::fs::canonicalize(".").expect("faile to canonicalize current directory");
+    let mut cargo_task_path = std::fs::canonicalize(".")
+        .expect("faile to canonicalize current directory");
 
     loop {
-        for item in std::fs::read_dir(&cargo_task_path).expect("failed to read directory") {
+        for item in std::fs::read_dir(&cargo_task_path)
+            .expect("failed to read directory")
+        {
             if let Ok(item) = item {
-                if !item.file_type().expect("failed to read file type").is_dir() {
+                if !item.file_type().expect("failed to read file type").is_dir()
+                {
                     continue;
                 }
                 if item.file_name() == CARGO_TASK_DIR {
@@ -84,10 +104,14 @@ fn find_cargo_task_work_dir() -> PathBuf {
 }
 
 /// Searches CARGO_TASK_DIR for defined tasks, and loads up metadata.
-fn enumerate_task_metadata<P: AsRef<Path>>(cargo_task_path: P) -> BTreeMap<String, CTTaskMeta> {
+fn enumerate_task_metadata<P: AsRef<Path>>(
+    cargo_task_path: P,
+) -> BTreeMap<String, CTTaskMeta> {
     let mut out = BTreeMap::new();
 
-    for item in std::fs::read_dir(&cargo_task_path).expect("failed to read directory") {
+    for item in
+        std::fs::read_dir(&cargo_task_path).expect("failed to read directory")
+    {
         if let Ok(item) = item {
             if !item.file_type().expect("failed to read file type").is_dir() {
                 continue;
