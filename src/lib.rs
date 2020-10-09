@@ -7,7 +7,10 @@ pub mod at_at;
 pub mod cargo_task_util;
 mod env_loader;
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
 const CARGO_TASK_UTIL_SRC: &[u8] = include_bytes!("cargo_task_util.rs");
 const CT_DIR_GIT_IGNORE_SRC: &[u8] =
@@ -49,12 +52,17 @@ pub fn exec_cargo_task() {
             print_usage(Some(&env));
             std::process::exit(0);
         }
-        fill_task_deps(&env, &mut task_list, task.to_string());
+        fill_task_deps(&env, &mut task_list, task.to_string(), HashSet::new());
     }
     if task_list.is_empty() {
         for (task, task_meta) in env.tasks.iter() {
             if task_meta.default {
-                fill_task_deps(&env, &mut task_list, task.to_string());
+                fill_task_deps(
+                    &env,
+                    &mut task_list,
+                    task.to_string(),
+                    HashSet::new(),
+                );
             }
         }
     }
@@ -82,10 +90,9 @@ fn fill_task_deps(
     env: &cargo_task_util::CTEnv,
     task_list: &mut Vec<String>,
     task: String,
+    mut visited: HashSet<String>,
 ) {
-    // TODO - We need some actual dependency tree shaking
-    //        this is just a quick naive dependency order.
-
+    visited.insert(task.clone());
     if !env.tasks.contains_key(&task) {
         // this may be a psuedo task - add it, but don't check deps
         if !task_list.contains(&task) {
@@ -94,7 +101,10 @@ fn fill_task_deps(
         return;
     }
     for dep in env.tasks.get(&task).unwrap().task_deps.iter() {
-        fill_task_deps(env, task_list, dep.to_string());
+        if visited.contains(dep) {
+            ct_fatal!("circular task dependency within {:?}", visited);
+        }
+        fill_task_deps(env, task_list, dep.to_string(), visited.clone());
     }
     if !task_list.contains(&task) {
         task_list.push(task);

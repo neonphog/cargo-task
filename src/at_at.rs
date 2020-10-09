@@ -83,6 +83,8 @@ impl<R: Read> AtAtParser<R> {
                 State::LineStart => {
                     if c == AT {
                         State::GatherName(Vec::new())
+                    } else if c == LF || c == CR {
+                        State::LineStart
                     } else {
                         State::Waiting
                     }
