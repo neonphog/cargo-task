@@ -12,5 +12,5 @@ fn main() {
     let mut cmd = env.cargo();
     cmd.arg("test");
     cmd.arg("--all-features");
-    env.exec(cmd);
+    env_check_fatal!(env, env.exec(cmd));
 }

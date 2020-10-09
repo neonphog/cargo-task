@@ -36,26 +36,18 @@ impl CTEnv {
     }
 
     /// Execute a rust std::process::Command
-    pub fn exec(&self, mut cmd: std::process::Command) {
+    pub fn exec(&self, mut cmd: std::process::Command) -> std::io::Result<()> {
+        let non_zero_err = format!("{:?} exited non-zero", cmd);
         cmd.stdin(std::process::Stdio::inherit());
         cmd.stdout(std::process::Stdio::inherit());
         cmd.stderr(std::process::Stdio::inherit());
-        let mut spawn = || {
-            if cmd
-                .spawn()
-                .map_err(|_| ())?
-                .wait()
-                .map_err(|_| ())?
-                .success()
-            {
-                Ok(())
-            } else {
-                Err(())
-            }
-        };
-        if spawn().is_err() {
-            self.fatal("failed to execute command");
+        if !cmd.spawn()?.wait()?.success() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                non_zero_err,
+            ));
         }
+        Ok(())
     }
 
     /// Log to stdout at INFO log level.
@@ -86,6 +78,9 @@ pub struct CTTaskMeta {
 
     /// does this path run on default `cargo task` execution?
     pub default: bool,
+
+    /// help info for this task
+    pub help: String,
 
     /// any cargo-task task dependencies
     pub task_deps: Vec<String>,
@@ -198,6 +193,17 @@ macro_rules! env_fatal {
     ($env:ident, $($tt:tt)*) => { $env.fatal(&format!($($tt)*)); };
 }
 
+/// takes an env and a result, if the result is error, runs env_fatal!
+#[macro_export]
+macro_rules! env_check_fatal {
+    ($env:ident, $code:expr) => {
+        match { $code } {
+            Err(e) => env_fatal!($env, "{:?}", e),
+            Ok(r) => r,
+        }
+    };
+}
+
 /// Loads task metadata from environment.
 fn enumerate_task_metadata(
 ) -> Result<BTreeMap<String, CTTaskMeta>, &'static str> {
@@ -210,6 +216,11 @@ fn enumerate_task_metadata(
             let name = env_k[8..env_k.len() - 5].to_string();
             let def_name = format!("CT_TASK_{}_DEFAULT", name);
             let default = env.contains_key(&OsString::from(def_name));
+            let help_name = format!("CT_TASK_{}_HELP", name);
+            let help = env
+                .get(&OsString::from(help_name))
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| "".to_string());
             let deps_name = format!("CT_TASK_{}_TASK_DEPS", name);
             let mut task_deps = Vec::new();
             if let Some(deps) = env.get(&OsString::from(deps_name)) {
@@ -224,6 +235,7 @@ fn enumerate_task_metadata(
                     name,
                     path,
                     default,
+                    help,
                     task_deps,
                 },
             );

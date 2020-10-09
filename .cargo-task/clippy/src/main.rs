@@ -11,5 +11,5 @@ fn main() {
     let env = cargo_task_util::ct_env();
     let mut cmd = env.cargo();
     cmd.arg("clippy");
-    env.exec(cmd);
+    env_check_fatal!(env, env.exec(cmd));
 }

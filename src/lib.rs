@@ -12,14 +12,25 @@ const CARGO_TASK_UTIL_SRC: &[u8] = include_bytes!("cargo_task_util.rs");
 
 /// Main entrypoint for cargo-task binary.
 pub fn exec_cargo_task() {
-    env_loader::load();
+    if env_loader::load().is_err() {
+        // hack check for --help
+        let args = std::env::args().collect::<Vec<_>>();
+        if args.len() >= 3 && &args[2] == "--help" {
+            print_usage(None);
+            std::process::exit(0);
+        }
+        eprintln!("ERROR: Could not find '.cargo-task' directory.");
+        eprintln!("Have you run 'cargo task ct-init'?");
+        std::process::exit(1);
+    }
     let env = cargo_task_util::ct_env();
     env_info!(env, "cargo-task running...");
 
     let mut task_list = Vec::new();
     for task in env.cur_args.iter() {
         if task == "--help" {
-            env_fatal!(env, "TODO - print out usage info!!");
+            print_usage(Some(&env));
+            std::process::exit(0);
         }
         fill_task_deps(&env, &mut task_list, task.to_string());
     }
@@ -34,7 +45,13 @@ pub fn exec_cargo_task() {
     env_info!(env, "task order: {:?}", task_list);
 
     for task in task_list {
-        run_task(&env, &task);
+        match task.as_str() {
+            "ct-meta" => {
+                env_info!(env, "print full cargo-task metadata");
+                println!("{:#?}", env);
+            }
+            _ => run_task(&env, &task),
+        }
     }
 
     env_info!(env, "cargo-task complete : )");
@@ -50,7 +67,11 @@ fn fill_task_deps(
     //        this is just a quick naive dependency order.
 
     if !env.tasks.contains_key(&task) {
-        env_fatal!(env, "invalid task name '{}'", task);
+        // this may be a psuedo task - add it, but don't check deps
+        if !task_list.contains(&task) {
+            task_list.push(task);
+        }
+        return;
     }
     for dep in env.tasks.get(&task).unwrap().task_deps.iter() {
         fill_task_deps(env, task_list, dep.to_string());
@@ -62,6 +83,10 @@ fn fill_task_deps(
 
 /// run a specific task
 fn run_task(env: &cargo_task_util::CTEnv, task_name: &str) {
+    if !env.tasks.contains_key(task_name) {
+        env_fatal!(env, "invalid task name '{}'", task_name);
+    }
+
     let task = task_build(&env, task_name);
 
     std::env::set_var("CT_CUR_TASK", task_name);
@@ -69,7 +94,9 @@ fn run_task(env: &cargo_task_util::CTEnv, task_name: &str) {
 
     let mut cmd = std::process::Command::new(task);
     cmd.current_dir(&env.work_dir);
-    env.exec(cmd);
+    if let Err(e) = env.exec(cmd) {
+        env_fatal!(env, "{:?}", e);
+    }
 
     env_info!(env, "run_task complete");
     std::env::remove_var("CT_CUR_TASK");
@@ -137,7 +164,9 @@ members = [
     cmd.arg("--target-dir");
     cmd.arg(&target_dir);
 
-    env.exec(cmd);
+    if let Err(e) = env.exec(cmd) {
+        env_fatal!(env, "{:?}", e);
+    }
 
     let _ = std::fs::remove_file(&workspace);
     let _ = std::fs::remove_file(&util);
@@ -172,4 +201,36 @@ fn get_newest_time<P: AsRef<Path>>(path: P) -> std::time::SystemTime {
     }
 
     newest_time
+}
+
+/// Print user-friendly usage info.
+fn print_usage(env: Option<&cargo_task_util::CTEnv>) {
+    println!(
+        r#"
+# cargo task usage info #
+
+        cargo help task - this help info
+             cargo task - execute all configured default cargo tasks
+ cargo task [task-list] - execute a specific list of cargo tasks
+
+# system tasks #
+
+                ct-meta - print meta info about the cargo-task configuration
+"#
+    );
+
+    if let Some(env) = env {
+        println!("# locally-defined tasks (* for default) #\n");
+
+        let mut keys = env.tasks.keys().collect::<Vec<_>>();
+        keys.sort();
+
+        for task_name in keys {
+            let task = env.tasks.get(task_name.as_str()).unwrap();
+            let def = if task.default { "*" } else { " " };
+            println!("{:>22}{} - {}", task.name, def, task.help);
+        }
+
+        println!();
+    }
 }

@@ -13,5 +13,5 @@ fn main() {
     cmd.arg("fmt");
     cmd.arg("--");
     cmd.arg("--check");
-    env.exec(cmd);
+    env_check_fatal!(env, env.exec(cmd));
 }

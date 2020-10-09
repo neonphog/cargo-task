@@ -20,7 +20,7 @@ fn set_env<N: AsRef<OsStr>, V: AsRef<OsStr>>(n: N, v: V) {
 
 /// Gather understanding of our cargo-task location.
 /// Translate it all into environment variables that CTEnv can read.
-pub fn load() {
+pub fn load() -> Result<(), ()> {
     // cargo binary path
     let cargo_path = std::env::var_os("CARGO")
         .map(PathBuf::from)
@@ -28,7 +28,7 @@ pub fn load() {
     set_env("CARGO", cargo_path);
 
     // work_dir
-    let work_dir = find_cargo_task_work_dir();
+    let work_dir = find_cargo_task_work_dir()?;
     set_env("CT_WORK_DIR", &work_dir);
 
     // cargo task path
@@ -38,9 +38,8 @@ pub fn load() {
 
     // cli arguments
     let mut args = std::env::args().collect::<Vec<_>>();
-    if args.len() >= 2 {
-        let start_idx = if args[1] == "task" { 2 } else { 1 };
-        args.drain(..start_idx);
+    args.drain(..std::cmp::min(args.len(), 2));
+    if !args.is_empty() {
         set_env("CT_CUR_ARGS", args.join(" "));
     }
 
@@ -58,6 +57,10 @@ pub fn load() {
             let def_name = format!("CT_TASK_{}_DEFAULT", task.name);
             set_env(&def_name, "1");
         }
+        if !task.help.is_empty() {
+            let def_name = format!("CT_TASK_{}_HELP", task.name);
+            set_env(&def_name, &task.help);
+        }
         let mut task_deps = "".to_string();
         for task_dep in task.task_deps.iter() {
             if !task_deps.is_empty() {
@@ -70,25 +73,23 @@ pub fn load() {
             set_env(&deps_name, &task_deps);
         }
     }
+
+    Ok(())
 }
 
 /// Searches up the directories from the current dir,
 /// looking for a directory containing a '.cargo-task' directory.
-fn find_cargo_task_work_dir() -> PathBuf {
-    let mut cargo_task_path = std::fs::canonicalize(".")
-        .expect("faile to canonicalize current directory");
+fn find_cargo_task_work_dir() -> Result<PathBuf, ()> {
+    let mut cargo_task_path = std::fs::canonicalize(".").map_err(|_| ())?;
 
     loop {
-        for item in std::fs::read_dir(&cargo_task_path)
-            .expect("failed to read directory")
-        {
+        for item in std::fs::read_dir(&cargo_task_path).map_err(|_| ())? {
             if let Ok(item) = item {
-                if !item.file_type().expect("failed to read file type").is_dir()
-                {
+                if !item.file_type().map_err(|_| ())?.is_dir() {
                     continue;
                 }
                 if item.file_name() == CARGO_TASK_DIR {
-                    return cargo_task_path;
+                    return Ok(cargo_task_path);
                 }
             }
         }
@@ -98,9 +99,7 @@ fn find_cargo_task_work_dir() -> PathBuf {
         }
     }
 
-    eprintln!("ERROR: Could not find '{}' directory.", CARGO_TASK_DIR);
-    eprintln!("Have you run 'cargo task ct-init'?");
-    std::process::exit(1);
+    Err(())
 }
 
 /// Searches CARGO_TASK_DIR for defined tasks, and loads up metadata.
@@ -128,6 +127,7 @@ fn enumerate_task_metadata<P: AsRef<Path>>(
                     .expect("failed to convert filename to string"),
                 path,
                 default: meta.default,
+                help: meta.help,
                 task_deps: meta.task_deps,
             };
             out.insert(meta.name.clone(), meta);
@@ -140,6 +140,17 @@ fn enumerate_task_metadata<P: AsRef<Path>>(
 struct Meta {
     default: bool,
     task_deps: Vec<String>,
+    help: String,
+}
+
+impl Default for Meta {
+    fn default() -> Self {
+        Self {
+            default: false,
+            task_deps: Vec::new(),
+            help: "".to_string(),
+        }
+    }
 }
 
 /// Parse meta-data info from the rust main source file.
@@ -206,14 +217,13 @@ fn parse_metadata<P: AsRef<Path>>(path: P) -> Meta {
         }
     }
 
-    let mut default = false;
-    let mut task_deps = Vec::new();
+    let mut meta = Meta::default();
 
     for (n, v) in nv {
         match n.as_str() {
             "ct-default" => {
                 if v == "true" {
-                    default = true;
+                    meta.default = true;
                 }
             }
             "ct-dependencies" => {
@@ -221,12 +231,15 @@ fn parse_metadata<P: AsRef<Path>>(path: P) -> Meta {
             }
             "ct-task-deps" => {
                 for dep in v.split_whitespace() {
-                    task_deps.push(dep.to_string());
+                    meta.task_deps.push(dep.to_string());
                 }
+            }
+            "ct-help" => {
+                meta.help = v;
             }
             _ => (),
         }
     }
 
-    Meta { default, task_deps }
+    meta
 }
