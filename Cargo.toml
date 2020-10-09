@@ -1,6 +1,14 @@
 [package]
 name = "cargo-task"
 version = "0.0.1"
+description = "Ultra-Lightweight Zero-Dependency Rust Cargo Task Runner."
+keywords = ["task", "build", "cargo", "subcommand", "make"]
+categories = ["command-line-utilities", "development-tools", "development-tools::cargo-plugins", "development-tools::build-utils", "development-tools::testing"]
+authors = ["neonphog <neonphog@gmail.com>"]
+license = "Apache-2.0"
+readme = "README.md"
+documentation = "https://docs.rs/cargo-task"
+repository = "https://github.com/neonphog/cargo-task"
 edition = "2018"
 
 [dependencies]
