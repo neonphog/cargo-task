@@ -28,7 +28,7 @@ cargo new --bin my-task
 ```
 
 - Edit `.cargo-task/my-task/src/main.rs` to look like:
-```no-compile
+```rust
 /*
 @ct-default@ true @@
 */
@@ -40,12 +40,14 @@ mod cargo_task_util;
 fn main() {
     ct_info!("Hello World!");
 }
-```rust
+```
 
 - Test it out:
 ```shell
+# Return to your root directory:
 cd ..
 
+# Run 'cargo task':
 cargo task
 ```
 

@@ -26,7 +26,7 @@
 //! ```
 //!
 //! - Edit `.cargo-task/my-task/src/main.rs` to look like:
-//! ```no-compile
+//! ```ignore
 //! /*
 //! @ct-default@ true @@
 //! */
