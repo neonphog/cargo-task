@@ -3,11 +3,8 @@
 */
 
 mod cargo_task_util;
-use cargo_task_util::*;
 
 fn main() {
-    let env = ct_env();
-
     let root_time = std::fs::metadata("src/cargo_task_util.rs")
         .unwrap()
         .modified()
@@ -29,7 +26,7 @@ fn main() {
                 if a_time < root_time {
                     let mut c_path = task.path();
                     c_path.push("Cargo.toml");
-                    env_info!(env, "touching {:?}", &c_path);
+                    ct_info!("touching {:?}", &c_path);
                     let mut f = std::fs::OpenOptions::new()
                         .create(true)
                         .write(true)

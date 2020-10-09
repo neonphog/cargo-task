@@ -1,11 +1,9 @@
 use crate::cargo_task_util::*;
 
-use crate::cargo_task_util::CTEnv;
 use std::{
     collections::BTreeMap,
     ffi::OsStr,
     path::{Path, PathBuf},
-    rc::Rc,
 };
 
 /// The .cargo-task directory name
@@ -17,7 +15,7 @@ fn set_env<N: AsRef<OsStr>, V: AsRef<OsStr>>(n: N, v: V) {
 
 /// Gather understanding of our cargo-task location.
 /// Translate it all into environment variables that CTEnv can read.
-pub fn load(fake_env: Rc<CTEnv>) -> Result<(), ()> {
+pub fn load() -> Result<(), ()> {
     // cargo binary path
     let cargo_path = std::env::var_os("CARGO")
         .map(PathBuf::from)
@@ -41,7 +39,7 @@ pub fn load(fake_env: Rc<CTEnv>) -> Result<(), ()> {
     }
 
     // load cargo-task tasks
-    let tasks = enumerate_task_metadata(fake_env, &cargo_task_path);
+    let tasks = enumerate_task_metadata(&cargo_task_path);
     for (_, task) in tasks {
         let path_name = format!("CT_TASK_{}_PATH", task.name);
         set_env(&path_name, &task.path);
@@ -96,7 +94,6 @@ fn find_cargo_task_work_dir() -> Result<PathBuf, ()> {
 
 /// Searches CARGO_TASK_DIR for defined tasks, and loads up metadata.
 fn enumerate_task_metadata<P: AsRef<Path>>(
-    fake_env: Rc<CTEnv>,
     cargo_task_path: P,
 ) -> BTreeMap<String, CTTaskMeta> {
     let mut out = BTreeMap::new();
@@ -112,7 +109,7 @@ fn enumerate_task_metadata<P: AsRef<Path>>(
             let mut main_path = path.clone();
             main_path.push("src");
             main_path.push("main.rs");
-            let meta = parse_metadata(fake_env.clone(), &main_path);
+            let meta = parse_metadata(&main_path);
             let meta = CTTaskMeta {
                 name: item
                     .file_name()
@@ -147,11 +144,11 @@ impl Default for Meta {
 }
 
 /// Parse meta-data info from the rust main source file.
-fn parse_metadata<P: AsRef<Path>>(fake_env: Rc<CTEnv>, path: P) -> Meta {
+fn parse_metadata<P: AsRef<Path>>(path: P) -> Meta {
     let mut meta = Meta::default();
 
-    let file = crate::env_check_fatal!(&fake_env, std::fs::File::open(&path));
-    let mut parser = crate::at_at::AtAtParser::new(fake_env.clone(), file);
+    let file = crate::ct_check_fatal!(std::fs::File::open(&path));
+    let mut parser = crate::at_at::AtAtParser::new(file);
     while let Some(items) = parser.parse() {
         for item in items {
             if let crate::at_at::AtAtParseItem::KeyValue(k, v) = item {
@@ -162,7 +159,7 @@ fn parse_metadata<P: AsRef<Path>>(fake_env: Rc<CTEnv>, path: P) -> Meta {
                         }
                     }
                     "ct-dependencies" => {
-                        crate::env_fatal!(&fake_env, "deps not allowed in full directory tasks - just specify them in your Cargo.toml");
+                        crate::ct_fatal!("deps not allowed in full directory tasks - just specify them in your Cargo.toml");
                     }
                     "ct-task-deps" => {
                         for dep in v.split_whitespace() {

@@ -7,10 +7,11 @@ setup
 */
 
 mod cargo_task_util;
+use cargo_task_util::*;
 
 fn main() {
-    let env = cargo_task_util::ct_env();
+    let env = ct_env();
     let mut cmd = env.cargo();
     cmd.arg("clippy");
-    env_check_fatal!(env, env.exec(cmd));
+    ct_check_fatal!(env.exec(cmd));
 }

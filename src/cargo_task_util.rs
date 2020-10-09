@@ -1,4 +1,8 @@
-//! Common cargo_task mod will be available to all tasks.
+//! Common cargo_task_util mod will be available to all tasks.
+//!
+//! Simply include it in your task module:
+//! - `mod cargo_task_util;`
+//! - `use cargo_task_util::*;`
 
 use std::{collections::BTreeMap, ffi::OsString, path::PathBuf, rc::Rc};
 
@@ -18,9 +22,6 @@ pub struct CTEnv {
 
     /// The root of the cargo task execution environment.
     pub work_dir: PathBuf,
-
-    /// Use colored log output.
-    pub with_color: bool,
 
     /// Current args to cargo-task.
     pub cur_args: Vec<String>,
@@ -49,22 +50,6 @@ impl CTEnv {
         }
         Ok(())
     }
-
-    /// Log to stdout at INFO log level.
-    pub fn info(&self, text: &str) {
-        self.priv_log(LogLevel::Info, text);
-    }
-
-    /// Log to stderr at WARN log level.
-    pub fn warn(&self, text: &str) {
-        self.priv_log(LogLevel::Warn, text);
-    }
-
-    /// Log to stderr at FATAL log level and exit the process with error code.
-    pub fn fatal(&self, text: &str) -> ! {
-        self.priv_log(LogLevel::Fatal, text);
-        std::process::exit(1)
-    }
 }
 
 /// Cargo-task task metadata struct.
@@ -86,6 +71,110 @@ pub struct CTTaskMeta {
     pub task_deps: Vec<String>,
 }
 
+/// Log Level enum for CT logging
+#[derive(Clone, Copy)]
+pub enum CTLogLevel {
+    /// Informational message
+    Info,
+
+    /// Warning message
+    Warn,
+
+    /// Fatal message
+    Fatal,
+}
+
+#[cfg(windows)]
+const DEFAULT_WITH_COLOR: bool = false;
+#[cfg(not(windows))]
+const DEFAULT_WITH_COLOR: bool = true;
+
+/// Generic CT log function
+pub fn ct_log(lvl: CTLogLevel, text: &str) {
+    let with_color = std::env::var_os("CT_NO_COLOR").is_none()
+        && (std::env::var_os("CT_WITH_COLOR").is_some() || DEFAULT_WITH_COLOR);
+
+    let task_name = std::env::var_os("CT_CUR_TASK")
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "".to_string());
+
+    let t_colon = if task_name.is_empty() { "" } else { ":" };
+
+    let base = if with_color { "\x1b[97m" } else { "" };
+    let reset = if with_color { "\x1b[0m" } else { "" };
+
+    let (lvl_name, log) = match lvl {
+        CTLogLevel::Info => ("INFO", "\x1b[92m"),
+        CTLogLevel::Warn => ("WARN", "\x1b[93m"),
+        CTLogLevel::Fatal => ("FATAL", "\x1b[91m"),
+    };
+
+    let log = if with_color { log } else { "" };
+
+    for line in text.split('\n') {
+        if let CTLogLevel::Info = lvl {
+            println!(
+                "{}[ct:{}{}{}{}{}]{} {}",
+                base, log, lvl_name, base, t_colon, task_name, reset, line
+            );
+        } else {
+            eprintln!(
+                "{}[ct:{}{}{}{}{}]{} {}",
+                base, log, lvl_name, base, t_colon, task_name, reset, line
+            );
+        }
+    }
+
+    if let CTLogLevel::Fatal = lvl {
+        std::process::exit(1);
+    }
+}
+
+/// Info level log function
+pub fn ct_info(text: &str) {
+    ct_log(CTLogLevel::Info, text)
+}
+
+/// Warn level log function
+pub fn ct_warn(text: &str) {
+    ct_log(CTLogLevel::Warn, text)
+}
+
+/// Fatal level log function
+pub fn ct_fatal(text: &str) -> ! {
+    ct_log(CTLogLevel::Fatal, text);
+    std::process::exit(1);
+}
+
+/// format! style helper for printing out info messages.
+#[macro_export]
+macro_rules! ct_info {
+    ($($tt:tt)*) => { $crate::cargo_task_util::ct_info(&format!($($tt)*)); };
+}
+
+/// format! style helper for printing out warn messages.
+#[macro_export]
+macro_rules! ct_warn {
+    ($($tt:tt)*) => { $crate::cargo_task_util::ct_warn(&format!($($tt)*)); };
+}
+
+/// format! style helper for printing out fatal messages.
+#[macro_export]
+macro_rules! ct_fatal {
+    ($($tt:tt)*) => { $crate::cargo_task_util::ct_fatal(&format!($($tt)*)); };
+}
+
+/// takes a result, if the result is error, runs ct_fatal!
+#[macro_export]
+macro_rules! ct_check_fatal {
+    ($code:expr) => {
+        match { $code } {
+            Err(e) => $crate::ct_fatal!("{:#?}", e),
+            Ok(r) => r,
+        }
+    };
+}
+
 // -- private -- //
 
 thread_local! {
@@ -93,31 +182,17 @@ thread_local! {
 }
 
 fn priv_new_env() -> Rc<CTEnv> {
-    let with_color = std::env::var_os("CT_WITH_COLOR").is_some();
-    let fake_env_for_logging = CTEnv {
-        cargo_path: PathBuf::new(),
-        work_dir: PathBuf::new(),
-        cargo_task_path: PathBuf::new(),
-        with_color,
-        cur_args: Vec::with_capacity(0),
-        tasks: BTreeMap::new(),
-    };
-
     let cargo_path = match std::env::var_os("CARGO").map(PathBuf::from) {
         Some(cargo_path) => cargo_path,
-        None => fake_env_for_logging
-            .fatal("CARGO binary path not set in environment"),
+        None => ct_fatal!("CARGO binary path not set in environment"),
     };
     let work_dir = match std::env::var_os("CT_WORK_DIR").map(PathBuf::from) {
         Some(work_dir) => work_dir,
-        None => fake_env_for_logging
-            .fatal("CT_WORK_DIR environment variable not set"),
+        None => ct_fatal!("CT_WORK_DIR environment variable not set"),
     };
     let cargo_task_path = match std::env::var_os("CT_PATH").map(PathBuf::from) {
         Some(cargo_task_path) => cargo_task_path,
-        None => {
-            fake_env_for_logging.fatal("CT_PATH environment variable not set")
-        }
+        None => ct_fatal!("CT_PATH environment variable not set"),
     };
     let cur_args = match std::env::var_os("CT_CUR_ARGS") {
         Some(args) => args
@@ -127,82 +202,15 @@ fn priv_new_env() -> Rc<CTEnv> {
             .collect::<Vec<_>>(),
         None => Vec::with_capacity(0),
     };
-    let tasks = match enumerate_task_metadata() {
-        Ok(tasks) => tasks,
-        Err(e) => fake_env_for_logging.fatal(e),
-    };
+    let tasks = ct_check_fatal!(enumerate_task_metadata());
 
     Rc::new(CTEnv {
         cargo_path,
         work_dir,
         cargo_task_path,
-        with_color,
         cur_args,
         tasks,
     })
-}
-
-impl CTEnv {
-    fn priv_log(&self, level: LogLevel, text: &str) {
-        for line in text.split('\n') {
-            self.priv_log_line(level, line);
-        }
-    }
-
-    fn priv_log_line(&self, level: LogLevel, text: &str) {
-        let task_name = std::env::var_os("CT_CUR_TASK")
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_else(|| "".to_string());
-        let t_colon = if task_name.is_empty() { "" } else { ":" };
-        let base = if self.with_color { "\x1b[97m" } else { "" };
-        let reset = if self.with_color { "\x1b[0m" } else { "" };
-        let (lvl, log) = match level {
-            LogLevel::Info => ("INFO", "\x1b[92m"),
-            LogLevel::Warn => ("WARN", "\x1b[93m"),
-            LogLevel::Fatal => ("FATAL", "\x1b[91m"),
-        };
-        let log = if self.with_color { log } else { "" };
-        if let LogLevel::Info = level {
-            println!(
-                "{}[ct:{}{}{}{}{}]{} {}",
-                base, log, lvl, base, t_colon, task_name, reset, text
-            );
-        } else {
-            eprintln!(
-                "{}[ct:{}{}{}{}{}]{} {}",
-                base, log, lvl, base, t_colon, task_name, reset, text
-            );
-        }
-    }
-}
-
-/// format! style helper for printing out info messages.
-#[macro_export]
-macro_rules! env_info {
-    ($env:expr, $($tt:tt)*) => { $env.info(&format!($($tt)*)); };
-}
-
-/// format! style helper for printing out warn messages.
-#[macro_export]
-macro_rules! env_warn {
-    ($env:expr, $($tt:tt)*) => { $env.warn(&format!($($tt)*)); };
-}
-
-/// format! style helper for printing out fatal messages.
-#[macro_export]
-macro_rules! env_fatal {
-    ($env:expr, $($tt:tt)*) => { $env.fatal(&format!($($tt)*)); };
-}
-
-/// takes an env and a result, if the result is error, runs env_fatal!
-#[macro_export]
-macro_rules! env_check_fatal {
-    ($env:expr, $code:expr) => {
-        match { $code } {
-            Err(e) => $crate::env_fatal!($env, "{:?}", e),
-            Ok(r) => r,
-        }
-    };
 }
 
 /// Loads task metadata from environment.
@@ -244,11 +252,4 @@ fn enumerate_task_metadata(
     }
 
     Ok(out)
-}
-
-#[derive(Clone, Copy)]
-enum LogLevel {
-    Info,
-    Warn,
-    Fatal,
 }

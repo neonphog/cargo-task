@@ -1,6 +1,6 @@
 //! AtAt Encoded KV Parsing
 
-use std::{io::Read, rc::Rc};
+use std::io::Read;
 
 const LF: u8 = 10;
 const CR: u8 = 13;
@@ -25,7 +25,6 @@ enum State {
 
 /// AtAt Encoded KV Parser
 pub struct AtAtParser<R: Read> {
-    env: Rc<crate::cargo_task_util::CTEnv>,
     reader: R,
     raw_buf: [u8; 4096],
     state: Option<State>,
@@ -34,9 +33,8 @@ pub struct AtAtParser<R: Read> {
 
 impl<R: Read> AtAtParser<R> {
     /// Wrap a reader in an AtAt parser.
-    pub fn new(env: Rc<crate::cargo_task_util::CTEnv>, reader: R) -> Self {
+    pub fn new(reader: R) -> Self {
         Self {
-            env,
             reader,
             raw_buf: [0; 4096],
             state: Some(State::LineStart),
@@ -60,7 +58,7 @@ impl<R: Read> AtAtParser<R> {
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {
                 return Some(Vec::with_capacity(0))
             }
-            Err(e) => crate::env_fatal!(self.env, "{:?}", e),
+            Err(e) => crate::ct_fatal!("{:?}", e),
         };
 
         if read == 0 {

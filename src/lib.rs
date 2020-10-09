@@ -7,39 +7,15 @@ pub mod at_at;
 pub mod cargo_task_util;
 mod env_loader;
 
-use std::{
-    collections::BTreeMap,
-    path::{Path, PathBuf},
-    rc::Rc,
-};
+use std::path::{Path, PathBuf};
 
 const CARGO_TASK_UTIL_SRC: &[u8] = include_bytes!("cargo_task_util.rs");
 const CT_DIR_GIT_IGNORE_SRC: &[u8] =
     include_bytes!("../.cargo-task/.gitignore");
 
-#[cfg(windows)]
-const DEFAULT_WITH_COLOR: bool = false;
-#[cfg(not(windows))]
-const DEFAULT_WITH_COLOR: bool = true;
-
 /// Main entrypoint for cargo-task binary.
 pub fn exec_cargo_task() {
-    let mut with_color = false;
-    if std::env::var_os("CT_NO_COLOR").is_none() && DEFAULT_WITH_COLOR {
-        std::env::set_var("CT_WITH_COLOR", "1");
-        with_color = true;
-    };
-
-    let fake_env = Rc::new(cargo_task_util::CTEnv {
-        cargo_path: PathBuf::new(),
-        work_dir: PathBuf::new(),
-        cargo_task_path: PathBuf::new(),
-        with_color,
-        cur_args: Vec::with_capacity(0),
-        tasks: BTreeMap::new(),
-    });
-
-    if env_loader::load(fake_env.clone()).is_err() {
+    if env_loader::load().is_err() {
         let args = std::env::args().collect::<Vec<_>>();
 
         // hack check for --help
@@ -50,22 +26,22 @@ pub fn exec_cargo_task() {
 
         // hack check for ct-init
         if args.len() >= 3 && &args[2] == "ct-init" {
-            env_info!(
-                fake_env,
-                "Initializing current directory for cargo-task..."
-            );
+            ct_info!("Initializing current directory for cargo-task...");
             let _ = std::fs::create_dir(".cargo-task");
-            env_check_fatal!(
-                fake_env,
-                std::fs::write(".cargo-task/.gitignore", CT_DIR_GIT_IGNORE_SRC)
-            );
+            ct_check_fatal!(std::fs::write(
+                ".cargo-task/.gitignore",
+                CT_DIR_GIT_IGNORE_SRC
+            ));
             std::process::exit(0);
         }
 
-        env_fatal!(fake_env, "ERROR: Could not find '.cargo-task' directory.\nHave you run 'cargo task ct-init'?");
+        ct_fatal!(
+            r"ERROR: Could not find '.cargo-task' directory.
+                  Have you run 'cargo task ct-init'?"
+        );
     }
     let env = cargo_task_util::ct_env();
-    env_info!(env, "cargo-task running...");
+    ct_info!("cargo-task running...");
 
     let mut task_list = Vec::new();
     for task in env.cur_args.iter() {
@@ -83,22 +59,22 @@ pub fn exec_cargo_task() {
         }
     }
 
-    env_info!(env, "task order: {:?}", task_list);
+    ct_info!("task order: {:?}", task_list);
 
     for task in task_list {
         match task.as_str() {
             "ct-init" => {
-                env_fatal!(env, "cargo task already initialized, aborting");
+                ct_fatal!("cargo task already initialized, aborting");
             }
             "ct-meta" => {
-                env_info!(env, "print full cargo-task metadata");
+                ct_info!("print full cargo-task metadata");
                 println!("{:#?}", env);
             }
             _ => run_task(&env, &task),
         }
     }
 
-    env_info!(env, "cargo-task complete : )");
+    ct_info!("cargo-task complete : )");
 }
 
 /// fill task deps
@@ -128,18 +104,18 @@ fn fill_task_deps(
 /// run a specific task
 fn run_task(env: &cargo_task_util::CTEnv, task_name: &str) {
     if !env.tasks.contains_key(task_name) {
-        env_fatal!(env, "invalid task name '{}'", task_name);
+        ct_fatal!("invalid task name '{}'", task_name);
     }
 
     let task = task_build(&env, task_name);
 
-    env_info!(env, "run task: '{}'", task_name);
+    ct_info!("run task: '{}'", task_name);
     std::env::set_var("CT_CUR_TASK", task_name);
 
     let mut cmd = std::process::Command::new(task);
     cmd.current_dir(&env.work_dir);
     if let Err(e) = env.exec(cmd) {
-        env_fatal!(env, "{:?}", e);
+        ct_fatal!("{:?}", e);
     }
 
     std::env::remove_var("CT_CUR_TASK");
@@ -168,7 +144,7 @@ fn task_build(env: &cargo_task_util::CTEnv, task_name: &str) -> PathBuf {
         }
     }
 
-    env_info!(env, "build task '{}'", task_name);
+    ct_info!("build task '{}'", task_name);
 
     let mut workspace = env.cargo_task_path.clone();
     workspace.push("Cargo.toml");
@@ -207,9 +183,7 @@ members = [
     cmd.arg("--target-dir");
     cmd.arg(&target_dir);
 
-    if let Err(e) = env.exec(cmd) {
-        env_fatal!(env, "{:?}", e);
-    }
+    ct_check_fatal!(env.exec(cmd));
 
     let _ = std::fs::remove_file(&workspace);
     let _ = std::fs::remove_file(&util);
