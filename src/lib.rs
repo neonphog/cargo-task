@@ -3,34 +3,35 @@
 #![forbid(warnings)]
 //! Ultra-Lightweight Zero-Dependency Rust Cargo Task Runner.
 //!
-//! ## Usage
+//! - Platform Agnostic - runs on any platform that cargo runs on.
+//! - Zero-Dependency - the task manager itself installs almost instantly.
+//! - Rust Task Logic - you can choose to inlude dependencies in your tasks.
 //!
-//! - Install the cargo subcommand:
+//! ## Quick Start - Installation
+//!
+//! - Install / Initialize `cargo-task`:
 //! ```shell
+//! # Install the cargo-task cargo submodule:
 //! cargo install cargo-task
-//! ```
 //!
-//! - Initialize your rust repository with a .cargo-task directory:
-//! ```shell
+//! # Initialize your rust repository with a .cargo-task directory:
 //! cargo task ct-init
-//! ```
 //!
-//! - Change to that directory:
-//! ```shell
+//! # Change to that directory:
 //! cd .cargo-task
-//! ```
 //!
-//! - Create a new task project:
-//! ```shell
+//! # Create a new task project:
 //! cargo new --bin my-task
 //! ```
 //!
 //! - Edit `.cargo-task/my-task/src/main.rs` to look like:
-//! ```shell
+//! ```no-compile
 //! /*
 //! @ct-default@ true @@
 //! */
 //!
+//! // The content of this module is added by the cargo task builder.
+//! // It contains helpers like the ct_* logging macros.
 //! mod cargo_task_util;
 //!
 //! fn main() {
@@ -38,15 +39,35 @@
 //! }
 //! ```
 //!
-//! - Return to your root directory:
+//! - Test it out:
 //! ```shell
+//! # Return to your root directory:
 //! cd ..
-//! ```
 //!
-//! - Run 'cargo task
-//! ```shell
+//! # Run 'cargo task':
 //! cargo task
 //! ```
+//!
+//! ## Quick Start - Command Line API
+//!
+//! - `cargo help task` - print out some cli help info.
+//! - `cargo task ct-init` - initialize a repository with a .cargo-task dir.
+//! - `cargo task ct-meta` - print out meta-information about configured tasks.
+//! - `cargo task` - execute any "default" tasks if configured.
+//! - `cargo task [task-name]` - execute a specific task (or list of tasks).
+//!
+//! ## AtAt (@@) cargo-task metadata
+//!
+//! - The first `@` must be the first character on a line!
+//! - Use double `@@` to finish the setting.
+//!
+//! - `@ct-default@` - set to `true` to make the task a default task.
+//! - `@ct-help@` - specify help text to be displayed next to your task on
+//! `cargo help task`
+//! - `@ct-task-deps@` - whitespace delimited list of tasks that should be
+//! run before this one.
+//! - `@ct-dependencies@` - reserved for when we implement light-weight
+//! single-file tasks.
 
 pub mod at_at;
 pub mod cargo_task_util;
