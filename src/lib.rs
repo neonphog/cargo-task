@@ -62,10 +62,25 @@
 //! - Use double `@@` to finish the setting.
 //!
 //! - `@ct-default@` - set to `true` to make the task a default task.
+//! ```shell
+//! @ct-default@ true @@
+//! ```
+//!
 //! - `@ct-help@` - specify help text to be displayed next to your task on
 //! `cargo help task`
+//! ```shell
+//! @ct-help@
+//! This is a description for a task.
+//! One line or two lines is fine.
+//! @@
+//! ```
+//!
 //! - `@ct-task-deps@` - whitespace delimited list of tasks that should be
 //! run before this one.
+//! ```shell
+//! @ct-task-dps@ task1 task2 @@
+//! ```
+//!
 //! - `@ct-dependencies@` - reserved for when we implement light-weight
 //! single-file tasks.
 
