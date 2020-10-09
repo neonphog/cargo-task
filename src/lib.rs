@@ -6,7 +6,7 @@
 //! - Platform Agnostic - runs on any platform that cargo runs on.
 //! - Zero-Dependency - the task manager itself installs almost instantly.
 //! - Rust Task Logic - you can choose to inlude dependencies in your tasks.
-//! - Take a look at [The Tasks in This Repo](./.cargo-task) for examples.
+//! - Take a look at the [.cargo-task](./.cargo-task) in this repo for examples.
 //!
 //! ## Quick Start - Installation
 //!
