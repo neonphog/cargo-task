@@ -10,11 +10,11 @@ mod cargo_task_util;
 use cargo_task_util::*;
 use std::process::Stdio;
 
-fn clippy_ok(env: &CTEnv) -> bool {
+fn readme_ok(env: &CTEnv) -> bool {
     let mut test = env.cargo();
     test
         .arg("help")
-        .arg("clippy")
+        .arg("readme")
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     match test.status() {
@@ -23,21 +23,11 @@ fn clippy_ok(env: &CTEnv) -> bool {
     }
 }
 
-fn install_clippy_rustup(env: &CTEnv) -> Result<(), ()> {
-    let mut ru = std::process::Command::new("rustup");
-    ru
-        .arg("component")
-        .arg("add")
-        .arg("clippy");
-    env.exec(ru).map_err(|_| ())?;
-    Ok(())
-}
-
-fn install_clippy_cargo(env: &CTEnv) {
+fn install_readme_cargo(env: &CTEnv) {
     let mut cargo = env.cargo();
     cargo
         .arg("install")
-        .arg("clippy");
+        .arg("cargo-readme");
     ct_check_fatal!(env.exec(cargo));
 }
 
@@ -45,13 +35,14 @@ fn main() {
     let env = ct_env();
 
     // see if clippy is installed
-    if !clippy_ok(&env) {
-        if install_clippy_rustup(&env).is_err() {
-            install_clippy_cargo(&env);
-        }
+    if !readme_ok(&env) {
+        install_readme_cargo(&env);
     }
 
     let mut cmd = env.cargo();
-    cmd.arg("clippy");
+    cmd
+        .arg("readme")
+        .arg("--output")
+        .arg("README.md");
     ct_check_fatal!(env.exec(cmd));
 }

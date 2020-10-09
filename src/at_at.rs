@@ -2,8 +2,13 @@
 
 use std::io::Read;
 
+/// line feed
 const LF: u8 = 10;
+
+/// carriage return
 const CR: u8 = 13;
+
+/// '@' character
 const AT: u8 = 64;
 
 /// Type returned from AtAt parsing.
@@ -15,11 +20,21 @@ pub enum AtAtParseItem {
     Data(Vec<u8>),
 }
 
+/// internal parse state
 enum State {
+    /// middle of not @@ characters
     Waiting,
+
+    /// at line start - look for @
     LineStart,
+
+    /// we found an '@' at line-start - gather a name
     GatherName(Vec<u8>),
+
+    /// we found a second '@' start gathering value
     GatherValue(Vec<u8>, Vec<u8>),
+
+    /// we found a first termination '@' if we get another it'll be a N/V
     FirstAt(Vec<u8>, Vec<u8>),
 }
 

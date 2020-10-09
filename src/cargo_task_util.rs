@@ -84,11 +84,6 @@ pub enum CTLogLevel {
     Fatal,
 }
 
-#[cfg(windows)]
-const DEFAULT_WITH_COLOR: bool = false;
-#[cfg(not(windows))]
-const DEFAULT_WITH_COLOR: bool = true;
-
 /// Generic CT log function
 pub fn ct_log(lvl: CTLogLevel, text: &str) {
     let with_color = std::env::var_os("CT_NO_COLOR").is_none()
@@ -177,10 +172,16 @@ macro_rules! ct_check_fatal {
 
 // -- private -- //
 
+#[cfg(windows)]
+const DEFAULT_WITH_COLOR: bool = false;
+#[cfg(not(windows))]
+const DEFAULT_WITH_COLOR: bool = true;
+
 thread_local! {
     static CT_ENV: Rc<CTEnv> = priv_new_env();
 }
 
+/// Gather data from environment variables to create a cargo task "env" item.
 fn priv_new_env() -> Rc<CTEnv> {
     let cargo_path = match std::env::var_os("CARGO").map(PathBuf::from) {
         Some(cargo_path) => cargo_path,

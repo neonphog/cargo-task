@@ -11,6 +11,7 @@ setup
 fmt-check
 clippy
 test
+readme
 @@
 */
 

@@ -1,13 +1,10 @@
-use crate::cargo_task_util::*;
+use crate::{cargo_task_util::*, CARGO_TASK_DIR};
 
 use std::{
     collections::BTreeMap,
     ffi::OsStr,
     path::{Path, PathBuf},
 };
-
-/// The .cargo-task directory name
-const CARGO_TASK_DIR: &str = ".cargo-task";
 
 fn set_env<N: AsRef<OsStr>, V: AsRef<OsStr>>(n: N, v: V) {
     std::env::set_var(n, v);
