@@ -1,3 +1,7 @@
+/*
+@ct-help@ Rebuild tasks if cargo_task_util.rs is updated. @@
+*/
+
 mod cargo_task_util;
 use cargo_task_util::*;
 

@@ -1,18 +1,15 @@
 use crate::cargo_task_util::*;
 
+use crate::cargo_task_util::CTEnv;
 use std::{
     collections::BTreeMap,
     ffi::OsStr,
     path::{Path, PathBuf},
+    rc::Rc,
 };
 
 /// The .cargo-task directory name
 const CARGO_TASK_DIR: &str = ".cargo-task";
-
-#[cfg(windows)]
-const DEFAULT_WITH_COLOR: bool = false;
-#[cfg(not(windows))]
-const DEFAULT_WITH_COLOR: bool = true;
 
 fn set_env<N: AsRef<OsStr>, V: AsRef<OsStr>>(n: N, v: V) {
     std::env::set_var(n, v);
@@ -20,7 +17,7 @@ fn set_env<N: AsRef<OsStr>, V: AsRef<OsStr>>(n: N, v: V) {
 
 /// Gather understanding of our cargo-task location.
 /// Translate it all into environment variables that CTEnv can read.
-pub fn load() -> Result<(), ()> {
+pub fn load(fake_env: Rc<CTEnv>) -> Result<(), ()> {
     // cargo binary path
     let cargo_path = std::env::var_os("CARGO")
         .map(PathBuf::from)
@@ -43,13 +40,8 @@ pub fn load() -> Result<(), ()> {
         set_env("CT_CUR_ARGS", args.join(" "));
     }
 
-    // color?
-    if std::env::var_os("CT_NO_COLOR").is_none() && DEFAULT_WITH_COLOR {
-        set_env("CT_WITH_COLOR", "1");
-    };
-
     // load cargo-task tasks
-    let tasks = enumerate_task_metadata(&cargo_task_path);
+    let tasks = enumerate_task_metadata(fake_env, &cargo_task_path);
     for (_, task) in tasks {
         let path_name = format!("CT_TASK_{}_PATH", task.name);
         set_env(&path_name, &task.path);
@@ -104,6 +96,7 @@ fn find_cargo_task_work_dir() -> Result<PathBuf, ()> {
 
 /// Searches CARGO_TASK_DIR for defined tasks, and loads up metadata.
 fn enumerate_task_metadata<P: AsRef<Path>>(
+    fake_env: Rc<CTEnv>,
     cargo_task_path: P,
 ) -> BTreeMap<String, CTTaskMeta> {
     let mut out = BTreeMap::new();
@@ -119,7 +112,7 @@ fn enumerate_task_metadata<P: AsRef<Path>>(
             let mut main_path = path.clone();
             main_path.push("src");
             main_path.push("main.rs");
-            let meta = parse_metadata(&main_path);
+            let meta = parse_metadata(fake_env.clone(), &main_path);
             let meta = CTTaskMeta {
                 name: item
                     .file_name()
@@ -154,90 +147,34 @@ impl Default for Meta {
 }
 
 /// Parse meta-data info from the rust main source file.
-fn parse_metadata<P: AsRef<Path>>(path: P) -> Meta {
-    let data = std::fs::read(path).expect("failed to read main.rs");
-
-    // super naive parsing : )
-    enum State {
-        Waiting,
-        LineStart,
-        GatherName(Vec<u8>),
-        GatherValue(Vec<u8>, Vec<u8>),
-        FirstAt(Vec<u8>, Vec<u8>),
-    };
-
-    let mut state = State::LineStart;
-
-    let mut nv = Vec::new();
-
-    for c in data {
-        state = match state {
-            State::Waiting => {
-                if c == 10 || c == 13 {
-                    State::LineStart
-                } else {
-                    State::Waiting
-                }
-            }
-            State::LineStart => {
-                if c == 64 {
-                    State::GatherName(Vec::new())
-                } else {
-                    State::Waiting
-                }
-            }
-            State::GatherName(mut name) => {
-                if c == 64 {
-                    State::GatherValue(name, Vec::new())
-                } else {
-                    name.push(c);
-                    State::GatherName(name)
-                }
-            }
-            State::GatherValue(name, mut value) => {
-                if c == 64 {
-                    State::FirstAt(name, value)
-                } else {
-                    value.push(c);
-                    State::GatherValue(name, value)
-                }
-            }
-            State::FirstAt(name, mut value) => {
-                if c == 64 {
-                    nv.push((
-                        String::from_utf8_lossy(&name).trim().to_string(),
-                        String::from_utf8_lossy(&value).trim().to_string(),
-                    ));
-                    State::Waiting
-                } else {
-                    value.push(64);
-                    State::GatherValue(name, value)
-                }
-            }
-        }
-    }
-
+fn parse_metadata<P: AsRef<Path>>(fake_env: Rc<CTEnv>, path: P) -> Meta {
     let mut meta = Meta::default();
 
-    for (n, v) in nv {
-        match n.as_str() {
-            "ct-default" => {
-                if v == "true" {
-                    meta.default = true;
+    let file = crate::env_check_fatal!(&fake_env, std::fs::File::open(&path));
+    let mut parser = crate::at_at::AtAtParser::new(fake_env.clone(), file);
+    while let Some(items) = parser.parse() {
+        for item in items {
+            if let crate::at_at::AtAtParseItem::KeyValue(k, v) = item {
+                match k.as_str() {
+                    "ct-default" => {
+                        if v == "true" {
+                            meta.default = true;
+                        }
+                    }
+                    "ct-dependencies" => {
+                        crate::env_fatal!(&fake_env, "deps not allowed in full directory tasks - just specify them in your Cargo.toml");
+                    }
+                    "ct-task-deps" => {
+                        for dep in v.split_whitespace() {
+                            meta.task_deps.push(dep.to_string());
+                        }
+                    }
+                    "ct-help" => {
+                        meta.help = v;
+                    }
+                    _ => (),
                 }
             }
-            "ct-dependencies" => {
-                println!("ignoring cargo deps for now:\n{}\n", v);
-            }
-            "ct-task-deps" => {
-                for dep in v.split_whitespace() {
-                    meta.task_deps.push(dep.to_string());
-                }
-            }
-            "ct-help" => {
-                meta.help = v;
-            }
-            _ => (),
         }
     }
 

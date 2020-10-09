@@ -1,5 +1,6 @@
 /*
-# two other cargo-task tasks should be run before this task
+@ct-help@ Run "cargo test". @@
+
 @ct-task-deps@
 setup
 @@

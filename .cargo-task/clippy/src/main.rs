@@ -1,5 +1,6 @@
 /*
-# two other cargo-task tasks should be run before this task
+@ct-help@ Run "cargo clippy" to check for lint. @@
+
 @ct-task-deps@
 setup
 @@

@@ -14,4 +14,10 @@ test
 @@
 */
 
-fn main() {}
+mod cargo_task_util;
+use cargo_task_util::*;
+
+fn main() {
+    let env = ct_env();
+    env_info!(env, "default task is a no-op");
+}

@@ -153,6 +153,7 @@ impl CTEnv {
         let task_name = std::env::var_os("CT_CUR_TASK")
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "".to_string());
+        let t_colon = if task_name.is_empty() { "" } else { ":" };
         let base = if self.with_color { "\x1b[97m" } else { "" };
         let reset = if self.with_color { "\x1b[0m" } else { "" };
         let (lvl, log) = match level {
@@ -163,13 +164,13 @@ impl CTEnv {
         let log = if self.with_color { log } else { "" };
         if let LogLevel::Info = level {
             println!(
-                "{}[ct:{}{}{}:{}]{} {}",
-                base, log, lvl, base, task_name, reset, text
+                "{}[ct:{}{}{}{}{}]{} {}",
+                base, log, lvl, base, t_colon, task_name, reset, text
             );
         } else {
             eprintln!(
-                "{}[ct:{}{}{}:{}]{} {}",
-                base, log, lvl, base, task_name, reset, text
+                "{}[ct:{}{}{}{}{}]{} {}",
+                base, log, lvl, base, t_colon, task_name, reset, text
             );
         }
     }
@@ -178,27 +179,27 @@ impl CTEnv {
 /// format! style helper for printing out info messages.
 #[macro_export]
 macro_rules! env_info {
-    ($env:ident, $($tt:tt)*) => { $env.info(&format!($($tt)*)); };
+    ($env:expr, $($tt:tt)*) => { $env.info(&format!($($tt)*)); };
 }
 
 /// format! style helper for printing out warn messages.
 #[macro_export]
 macro_rules! env_warn {
-    ($env:ident, $($tt:tt)*) => { $env.warn(&format!($($tt)*)); };
+    ($env:expr, $($tt:tt)*) => { $env.warn(&format!($($tt)*)); };
 }
 
 /// format! style helper for printing out fatal messages.
 #[macro_export]
 macro_rules! env_fatal {
-    ($env:ident, $($tt:tt)*) => { $env.fatal(&format!($($tt)*)); };
+    ($env:expr, $($tt:tt)*) => { $env.fatal(&format!($($tt)*)); };
 }
 
 /// takes an env and a result, if the result is error, runs env_fatal!
 #[macro_export]
 macro_rules! env_check_fatal {
-    ($env:ident, $code:expr) => {
+    ($env:expr, $code:expr) => {
         match { $code } {
-            Err(e) => env_fatal!($env, "{:?}", e),
+            Err(e) => $crate::env_fatal!($env, "{:?}", e),
             Ok(r) => r,
         }
     };
