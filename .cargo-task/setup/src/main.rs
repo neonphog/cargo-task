@@ -24,6 +24,9 @@ fn main() {
     // so if that file has been updated we need to touch the task file.
     for task in std::fs::read_dir(".cargo-task").unwrap() {
         if let Ok(task) = task {
+            if task.file_name() == "target" {
+                continue;
+            }
             if task.file_type().unwrap().is_dir() {
                 let name = task.file_name();
                 let mut a_path = std::path::PathBuf::from("./.cargo-task/target/release");
