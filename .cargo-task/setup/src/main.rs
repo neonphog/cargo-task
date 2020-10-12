@@ -36,20 +36,15 @@ fn main() {
                     let mut c_path = task.path();
                     c_path.push("Cargo.toml");
                     ct_info!("touching {:?}", &c_path);
-                    let mut f = std::fs::OpenOptions::new()
-                        .create(true)
-                        .write(true)
-                        .append(true)
-                        .open(&c_path)
-                        .unwrap();
-                    // just opening it doesn't seem to update the mod time
-                    // append a newline, then remove it.
-                    std::io::Write::write_all(&mut f, b"\n").unwrap();
-                    f.sync_all().unwrap();
-                    let len = f.metadata().unwrap().len();
-                    f.set_len(len - 1).unwrap();
-                    f.sync_all().unwrap();
-                    drop(f);
+                    let mut u_path = c_path.clone();
+                    u_path.pop();
+                    u_path.push("Cargo.toml2");
+                    // just opening the file does not update the
+                    // modified time - using copy/rename for now
+                    // if anyone has a better idea, open a PR!
+                    ct_check_fatal!(std::fs::copy(&c_path, &u_path));
+                    ct_check_fatal!(std::fs::remove_file(&c_path));
+                    ct_check_fatal!(std::fs::rename(&u_path, &c_path));
                 }
             }
         }
