@@ -20,6 +20,9 @@ pub struct CTEnv {
     /// The .cargo-task directory.
     pub cargo_task_path: PathBuf,
 
+    /// The targe dir for cargo-task builds.
+    pub cargo_task_target: PathBuf,
+
     /// The root of the cargo task execution environment.
     pub work_dir: PathBuf,
 
@@ -195,6 +198,11 @@ fn priv_new_env() -> Rc<CTEnv> {
         Some(cargo_task_path) => cargo_task_path,
         None => ct_fatal!("CT_PATH environment variable not set"),
     };
+    let cargo_task_target =
+        match std::env::var_os("CT_TARGET").map(PathBuf::from) {
+            Some(cargo_task_target) => cargo_task_target,
+            None => ct_fatal!("CT_TARGET environment variable not set"),
+        };
     let cur_args = match std::env::var_os("CT_CUR_ARGS") {
         Some(args) => args
             .to_string_lossy()
@@ -209,6 +217,7 @@ fn priv_new_env() -> Rc<CTEnv> {
         cargo_path,
         work_dir,
         cargo_task_path,
+        cargo_task_target,
         cur_args,
         tasks,
     })
