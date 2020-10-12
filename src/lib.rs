@@ -101,7 +101,7 @@ const CT_DIR_GIT_IGNORE: &str = ".cargo-task/.gitignore";
 /// Source content of .cargo-task/.gitignore for 'ct-init'
 #[cfg(windows)]
 const CT_DIR_GIT_IGNORE_SRC: &[u8] = include_bytes!(concat!(
-    env!(CARGO_MANIFEST_DIR),
+    env!("CARGO_MANIFEST_DIR"),
     "\\.cargo-task\\.gitignore"
 ));
 #[cfg(not(windows))]
