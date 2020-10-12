@@ -1,6 +1,6 @@
 [package]
 name = "cargo-task"
-version = "0.0.1"
+version = "0.0.2"
 description = "Ultra-Lightweight Zero-Dependency Rust Cargo Task Runner."
 keywords = ["task", "build", "cargo", "subcommand", "make"]
 categories = ["command-line-utilities", "development-tools", "development-tools::cargo-plugins", "development-tools::build-utils", "development-tools::testing"]

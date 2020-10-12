@@ -67,6 +67,12 @@ Have you run 'cargo task ct-init'?",
                 ct_info!("print full cargo-task metadata");
                 println!("{:#?}", env);
             }
+            "ct-clean" => {
+                ct_info!("deleting {:?}", env.cargo_task_target);
+                ct_check_fatal!(std::fs::remove_dir_all(
+                    &env.cargo_task_target
+                ));
+            }
             _ => run_task(&env, &task),
         }
     }
@@ -125,8 +131,7 @@ fn task_build(env: &cargo_task_util::CTEnv, task_name: &str) -> PathBuf {
     let mut task_dir = env.cargo_task_path.clone();
     task_dir.push(task_name);
 
-    let mut target_dir = env.work_dir.clone();
-    target_dir.push("target");
+    let target_dir = env.cargo_task_target.clone();
 
     let mut artifact_path = target_dir.clone();
     artifact_path.push("release");
@@ -233,6 +238,8 @@ fn print_usage(env: Option<&cargo_task_util::CTEnv>) {
 
                 ct-init - generate a '{}' directory + .gitignore
                 ct-meta - print meta info about the cargo-task configuration
+               ct-clean - delete the cargo-task target directory, will be
+                          removed even if it matches your project target dir
 "#,
         CARGO_TASK_DIR,
     );

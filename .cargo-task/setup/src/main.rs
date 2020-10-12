@@ -2,7 +2,16 @@
 @ct-help@ Rebuild tasks if cargo_task_util.rs is updated. @@
 */
 
+use std::path::Path;
+
 mod cargo_task_util;
+
+fn mtime<P: AsRef<Path>>(p: P) -> Result<std::time::SystemTime, ()> {
+    Ok(std::fs::metadata(p.as_ref())
+        .map_err(|_| ())?
+        .modified()
+        .map_err(|_| ())?)
+}
 
 fn main() {
     let root_time = std::fs::metadata("src/cargo_task_util.rs")
@@ -17,12 +26,12 @@ fn main() {
         if let Ok(task) = task {
             if task.file_type().unwrap().is_dir() {
                 let name = task.file_name();
-                let mut a_path = std::path::PathBuf::from("./target/release");
+                let mut a_path = std::path::PathBuf::from("./.cargo-task/target/release");
                 a_path.push(&name);
-                let a_time = std::fs::metadata(&a_path)
-                    .unwrap()
-                    .modified()
-                    .unwrap();
+                let a_time = match mtime(&a_path) {
+                    Err(_) => std::time::SystemTime::UNIX_EPOCH,
+                    Ok(t) => t,
+                };
                 if a_time < root_time {
                     let mut c_path = task.path();
                     c_path.push("Cargo.toml");

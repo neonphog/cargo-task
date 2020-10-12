@@ -28,6 +28,14 @@ pub fn load() -> Result<(), ()> {
     cargo_task_path.push(CARGO_TASK_DIR);
     set_env("CT_PATH", &cargo_task_path);
 
+    // cargo task target dir
+    let mut cargo_task_target = cargo_task_path.clone();
+    cargo_task_target.push("target");
+    if let Some(target) = std::env::var_os("CT_TARGET") {
+        cargo_task_target = PathBuf::from(target);
+    }
+    set_env("CT_TARGET", &cargo_task_target);
+
     // cli arguments
     let mut args = std::env::args().collect::<Vec<_>>();
     args.drain(..std::cmp::min(args.len(), 2));
@@ -99,14 +107,25 @@ fn enumerate_task_metadata<P: AsRef<Path>>(
         std::fs::read_dir(&cargo_task_path).expect("failed to read directory")
     {
         if let Ok(item) = item {
-            if !item.file_type().expect("failed to read file type").is_dir() {
+            if !item.file_type().expect("failed to read file type").is_dir()
+                || item.file_name() == "target"
+            {
                 continue;
             }
             let path = item.path();
             let mut main_path = path.clone();
             main_path.push("src");
             main_path.push("main.rs");
-            let meta = parse_metadata(&main_path);
+            let meta = match parse_metadata(&main_path) {
+                Ok(meta) => meta,
+                Err(_) => {
+                    crate::ct_warn!(
+                        "could not parse task {:?}",
+                        item.file_name()
+                    );
+                    continue;
+                }
+            };
             let meta = CTTaskMeta {
                 name: item
                     .file_name()
@@ -141,10 +160,10 @@ impl Default for Meta {
 }
 
 /// Parse meta-data info from the rust main source file.
-fn parse_metadata<P: AsRef<Path>>(path: P) -> Meta {
+fn parse_metadata<P: AsRef<Path>>(path: P) -> Result<Meta, ()> {
     let mut meta = Meta::default();
 
-    let file = crate::ct_check_fatal!(std::fs::File::open(&path));
+    let file = std::fs::File::open(&path).map_err(|_| ())?;
     let mut parser = crate::at_at::AtAtParser::new(file);
     while let Some(items) = parser.parse() {
         for item in items {
@@ -172,5 +191,5 @@ fn parse_metadata<P: AsRef<Path>>(path: P) -> Meta {
         }
     }
 
-    meta
+    Ok(meta)
 }
