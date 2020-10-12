@@ -45,3 +45,6 @@ jobs:
      with:
        command: run
        args:
+       - --
+       - --
+       - ci
