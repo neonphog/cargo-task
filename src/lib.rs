@@ -93,12 +93,19 @@ mod env_loader;
 const CARGO_TASK_DIR: &str = ".cargo-task";
 
 /// The .cargo-task/.gitignore file
+#[cfg(windows)]
+const CT_DIR_GIT_IGNORE: &str = ".cargo-task\\.gitignore";
+#[cfg(not(windows))]
 const CT_DIR_GIT_IGNORE: &str = ".cargo-task/.gitignore";
 
 /// Source-code content of cargo_task_util.rs
 const CARGO_TASK_UTIL_SRC: &[u8] = include_bytes!("cargo_task_util.rs");
 
 /// Source content of .cargo-task/.gitignore for 'ct-init'
+#[cfg(windows)]
+const CT_DIR_GIT_IGNORE_SRC: &[u8] =
+    include_bytes!("..\\.cargo-task\\.gitignore");
+#[cfg(not(windows))]
 const CT_DIR_GIT_IGNORE_SRC: &[u8] =
     include_bytes!("../.cargo-task/.gitignore");
 
