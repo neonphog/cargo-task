@@ -37,11 +37,25 @@ pub fn load() -> Result<(), ()> {
     set_env("CT_TARGET", &cargo_task_target);
 
     // cli arguments
-    let mut args = std::env::args().collect::<Vec<_>>();
-    args.drain(..std::cmp::min(args.len(), 2));
-    if !args.is_empty() {
-        set_env("CT_CUR_ARGS", args.join(" "));
+    let mut tasks = Vec::new();
+    let mut args = Vec::new();
+    let mut found_sep = false;
+    for (idx, arg) in std::env::args().enumerate() {
+        if idx < 2 {
+            continue;
+        }
+        if !found_sep && arg == "--" {
+            found_sep = true;
+            continue;
+        }
+        if found_sep {
+            args.push(arg);
+        } else {
+            tasks.push(arg);
+        }
     }
+    set_env("CT_TASKS", tasks.join(" "));
+    set_env("CT_ARGS", args.join(" "));
 
     // load cargo-task tasks
     let tasks = enumerate_task_metadata(&cargo_task_path);

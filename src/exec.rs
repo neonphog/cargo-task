@@ -6,41 +6,22 @@ use std::{
 
 /// Main entrypoint for cargo-task binary.
 pub fn exec_cargo_task() {
+    // any pre-env-load tasks to execute?
+    task::check_pre_env_task();
+
     if env_loader::load().is_err() {
-        let args = std::env::args().collect::<Vec<_>>();
-
-        // hack check for --help
-        if args.len() >= 3 && &args[2] == "--help" {
-            print_usage(None);
-            std::process::exit(0);
-        }
-
-        // hack check for ct-init
-        if args.len() >= 3 && &args[2] == "ct-init" {
-            ct_info!("Initializing current directory for cargo-task...");
-            let _ = std::fs::create_dir(CARGO_TASK_DIR);
-            ct_check_fatal!(std::fs::write(
-                CT_DIR_GIT_IGNORE,
-                CT_DIR_GIT_IGNORE_SRC
-            ));
-            std::process::exit(0);
-        }
-
         ct_fatal!(
             r"ERROR: Could not find '{}' directory.
 Have you run 'cargo task ct-init'?",
             CARGO_TASK_DIR,
         );
     }
+
     let env = cargo_task_util::ct_env();
     ct_info!("cargo-task running...");
 
     let mut task_list = Vec::new();
-    for task in env.cur_args.iter() {
-        if task == "--help" {
-            print_usage(Some(&env));
-            std::process::exit(0);
-        }
+    for task in env.task_list.iter() {
         fill_task_deps(&env, &mut task_list, task.to_string(), HashSet::new());
     }
     if task_list.is_empty() {
@@ -59,21 +40,8 @@ Have you run 'cargo task ct-init'?",
     ct_info!("task order: {:?}", task_list);
 
     for task in task_list {
-        match task.as_str() {
-            "ct-init" => {
-                ct_fatal!("cargo task already initialized, aborting");
-            }
-            "ct-meta" => {
-                ct_info!("print full cargo-task metadata");
-                println!("{:#?}", env);
-            }
-            "ct-clean" => {
-                ct_info!("deleting {:?}", env.cargo_task_target);
-                ct_check_fatal!(std::fs::remove_dir_all(
-                    &env.cargo_task_target
-                ));
-            }
-            _ => run_task(&env, &task),
+        if !task::check_system_task(task.as_str(), &env) {
+            run_task(&env, &task);
         }
     }
 
@@ -119,6 +87,9 @@ fn run_task(env: &cargo_task_util::CTEnv, task_name: &str) {
 
     let mut cmd = std::process::Command::new(task);
     cmd.current_dir(&env.work_dir);
+    for arg in env.arg_list.iter() {
+        cmd.arg(arg);
+    }
     if let Err(e) = env.exec(cmd) {
         ct_fatal!("{:?}", e);
     }
@@ -222,40 +193,4 @@ fn get_newest_time<P: AsRef<Path>>(path: P) -> std::time::SystemTime {
     }
 
     newest_time
-}
-
-/// Print user-friendly usage info.
-fn print_usage(env: Option<&cargo_task_util::CTEnv>) {
-    println!(
-        r#"
-# cargo task usage info #
-
-        cargo help task - this help info
-             cargo task - execute all configured default cargo tasks
- cargo task [task-list] - execute a specific list of cargo tasks
-
-# system tasks #
-
-                ct-init - generate a '{}' directory + .gitignore
-                ct-meta - print meta info about the cargo-task configuration
-               ct-clean - delete the cargo-task target directory, will be
-                          removed even if it matches your project target dir
-"#,
-        CARGO_TASK_DIR,
-    );
-
-    if let Some(env) = env {
-        println!("# locally-defined tasks (* for default) #\n");
-
-        let mut keys = env.tasks.keys().collect::<Vec<_>>();
-        keys.sort();
-
-        for task_name in keys {
-            let task = env.tasks.get(task_name.as_str()).unwrap();
-            let def = if task.default { "*" } else { " " };
-            println!("{:>22}{} - {}", task.name, def, task.help);
-        }
-
-        println!();
-    }
 }
