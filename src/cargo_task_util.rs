@@ -3,6 +3,10 @@
 //! Simply include it in your task module:
 //! - `mod cargo_task_util;`
 //! - `use cargo_task_util::*;`
+//!
+//! Note, the macros `ct_info!`, `ct_warn!`, `ct_fatal!`, and `ct_check_fatal!`
+//! are all defined in this module, and thus are available to task code too.
+//! But rust hoists all macros up to the root, so their docs are up there : )
 
 use std::{collections::BTreeMap, ffi::OsString, path::PathBuf, rc::Rc};
 
