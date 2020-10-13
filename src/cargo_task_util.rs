@@ -45,9 +45,6 @@ impl CTEnv {
     /// Execute a rust std::process::Command
     pub fn exec(&self, mut cmd: std::process::Command) -> std::io::Result<()> {
         let non_zero_err = format!("{:?} exited non-zero", cmd);
-        cmd.stdin(std::process::Stdio::inherit());
-        cmd.stdout(std::process::Stdio::inherit());
-        cmd.stderr(std::process::Stdio::inherit());
         if !cmd.spawn()?.wait()?.success() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -55,6 +52,15 @@ impl CTEnv {
             ));
         }
         Ok(())
+    }
+
+    /// Export an environment variable up to the parent task runner env.
+    /// Also sets the varible in the current environment.
+    pub fn set_env<N: AsRef<str>, V: AsRef<str>>(&self, name: N, val: V) {
+        let name = name.as_ref();
+        let val = val.as_ref();
+        std::env::set_var(name, val);
+        println!("@ct-set-env@ {}={} @@", name, val);
     }
 }
 
