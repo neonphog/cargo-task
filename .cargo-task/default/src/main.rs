@@ -1,13 +1,11 @@
 /*
-# this IS a default task
+# run this if no other tasks are specified
 @ct-default@ true @@
 
 # some help info for 'cargo help task'
 @ct-help@ This meta default task just ensures other tasks run. @@
 
-
 @ct-task-deps@
-setup
 fmt-check
 clippy
 test

@@ -22,15 +22,21 @@ pub fn help() {
 
     if env_loader::load().is_ok() {
         let env = cargo_task_util::ct_env();
-        println!("# locally-defined tasks (* for default) #\n");
+        println!("# locally-defined tasks (* - default, ^ - bootstrap) #\n");
 
         let mut keys = env.tasks.keys().collect::<Vec<_>>();
         keys.sort();
 
         for task_name in keys {
             let task = env.tasks.get(task_name.as_str()).unwrap();
-            let def = if task.default { "*" } else { " " };
-            println!("{:>22}{} - {}", task.name, def, task.help);
+            let m = if task.bootstrap {
+                "^"
+            } else if task.default {
+                "*"
+            } else {
+                " "
+            };
+            println!("{:>22}{} - {}", task.name, m, task.help);
         }
 
         println!();

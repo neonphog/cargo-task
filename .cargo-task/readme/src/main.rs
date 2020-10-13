@@ -1,9 +1,5 @@
 /*
-@ct-help@ Run "cargo clippy" to check for lint. @@
-
-@ct-task-deps@
-setup
-@@
+@ct-help@ Generate a README.md from our rust lib.rs docs. @@
 */
 
 mod cargo_task_util;

@@ -1,9 +1,5 @@
 /*
 @ct-help@ Run "cargo test". @@
-
-@ct-task-deps@
-setup
-@@
 */
 
 mod cargo_task_util;

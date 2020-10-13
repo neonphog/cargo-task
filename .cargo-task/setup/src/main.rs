@@ -1,4 +1,7 @@
 /*
+# always run this setup task befor any other tasks
+@ct-bootstrap@ true @@
+
 @ct-help@ Rebuild tasks if cargo_task_util.rs is updated. @@
 */
 
