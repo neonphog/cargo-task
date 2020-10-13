@@ -17,5 +17,6 @@ mod cargo_task_util;
 //use cargo_task_util::*;
 
 fn main() {
+    assert_eq!("CT_TEST_VAL", &std::env::var("CT_TEST_KEY").unwrap());
     ct_info!("default task is a no-op");
 }

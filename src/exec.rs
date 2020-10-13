@@ -129,11 +129,69 @@ fn run_task(env: &cargo_task_util::CTEnv, task_name: &str) {
     for arg in env.arg_list.iter() {
         cmd.arg(arg);
     }
-    if let Err(e) = env.exec(cmd) {
-        ct_fatal!("{:?}", e);
-    }
+    cmd.stdin(std::process::Stdio::piped());
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+    let mut child_out = Vec::new();
+    let res: Result<(), String> = (move || {
+        let mut child = cmd.spawn().map_err(|e| format!("{:?}", e))?;
 
+        // drop stdin to ensure child exit
+        drop(child.stdin.take().unwrap());
+
+        let mut parser = at_at::AtAtParser::new(child.stdout.take().unwrap());
+
+        while let Some(res) = parser.parse() {
+            for item in res {
+                match item {
+                    at_at::AtAtParseItem::KeyValue(k, v) => match k.as_str() {
+                        "ct-set-env" => {
+                            let idx = match v.find('=') {
+                                Some(idx) => idx,
+                                None => ct_fatal!(
+                                    "no '=' found in ct-set-env directive"
+                                ),
+                            };
+                            let n = &v[..idx];
+                            let v = &v[idx + 1..];
+                            std::env::set_var(n, v);
+                            ct_info!("CT-SET-ENV: {}={}", n, v);
+                        }
+                        _ => ct_fatal!("unrecognized AtAt command '{}'", k),
+                    },
+                    at_at::AtAtParseItem::Data(mut d) => {
+                        child_out.append(&mut d);
+                    }
+                }
+            }
+        }
+
+        let res: Result<(), String> = (|| {
+            let status = child.wait().map_err(|e| format!("{:?}", e))?;
+
+            if !status.success() {
+                return Err(format!("{} exited non-zero", task_name));
+            }
+
+            Ok(())
+        })();
+
+        use std::io::{Read, Write};
+
+        let _ = std::io::stdout().write_all(&child_out);
+
+        let mut err = Vec::new();
+        if child.stderr.take().unwrap().read_to_end(&mut err).is_ok() {
+            let _ = std::io::stderr().write_all(&err);
+        }
+
+        res
+    })();
     std::env::remove_var("CT_CUR_TASK");
+
+    if let Err(e) = res {
+        ct_fatal!("{}", e);
+    }
 }
 
 /// build a specific task crate

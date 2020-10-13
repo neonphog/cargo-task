@@ -8,6 +8,7 @@
 use std::path::Path;
 
 mod cargo_task_util;
+use cargo_task_util::*;
 
 fn mtime<P: AsRef<Path>>(p: P) -> Result<std::time::SystemTime, ()> {
     Ok(std::fs::metadata(p.as_ref())
@@ -17,6 +18,14 @@ fn mtime<P: AsRef<Path>>(p: P) -> Result<std::time::SystemTime, ()> {
 }
 
 fn main() {
+    let env = ct_env();
+
+    // first, set some job env vars : )
+    let cpu_count = format!("{}", num_cpus::get());
+    env.set_env("CARGO_BUILD_JOBS", &cpu_count);
+    env.set_env("NUM_JOBS", &cpu_count);
+    env.set_env("CT_TEST_KEY", "CT_TEST_VAL");
+
     let root_time = std::fs::metadata("src/cargo_task_util.rs")
         .unwrap()
         .modified()
