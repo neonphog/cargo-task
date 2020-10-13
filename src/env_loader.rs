@@ -66,6 +66,10 @@ pub fn load() -> Result<(), ()> {
             let def_name = format!("CT_TASK_{}_DEFAULT", task.name);
             set_env(&def_name, "1");
         }
+        if task.bootstrap {
+            let bs_name = format!("CT_TASK_{}_BOOTSTRAP", task.name);
+            set_env(&bs_name, "1");
+        }
         if !task.help.is_empty() {
             let def_name = format!("CT_TASK_{}_HELP", task.name);
             set_env(&def_name, &task.help);
@@ -147,6 +151,7 @@ fn enumerate_task_metadata<P: AsRef<Path>>(
                     .expect("failed to convert filename to string"),
                 path,
                 default: meta.default,
+                bootstrap: meta.bootstrap,
                 help: meta.help,
                 task_deps: meta.task_deps,
             };
@@ -159,6 +164,7 @@ fn enumerate_task_metadata<P: AsRef<Path>>(
 
 struct Meta {
     default: bool,
+    bootstrap: bool,
     task_deps: Vec<String>,
     help: String,
 }
@@ -167,6 +173,7 @@ impl Default for Meta {
     fn default() -> Self {
         Self {
             default: false,
+            bootstrap: false,
             task_deps: Vec::new(),
             help: "".to_string(),
         }
@@ -186,6 +193,11 @@ fn parse_metadata<P: AsRef<Path>>(path: P) -> Result<Meta, ()> {
                     "ct-default" => {
                         if v == "true" {
                             meta.default = true;
+                        }
+                    }
+                    "ct-bootstrap" => {
+                        if v == "true" {
+                            meta.bootstrap = true;
                         }
                     }
                     "ct-dependencies" => {

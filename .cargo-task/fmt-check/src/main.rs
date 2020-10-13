@@ -1,9 +1,5 @@
 /*
 @ct-help@ Run "cargo fmt --check" enforce style. @@
-
-@ct-task-deps@
-setup
-@@
 */
 
 mod cargo_task_util;

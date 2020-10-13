@@ -3,7 +3,6 @@
 @ct-help@ This suite of deps will be run in cargo-task CI. @@
 
 @ct-task-deps@
-setup
 fmt-check
 clippy
 test

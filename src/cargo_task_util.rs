@@ -70,6 +70,10 @@ pub struct CTTaskMeta {
     /// does this path run on default `cargo task` execution?
     pub default: bool,
 
+    /// should this task always run before other tasks?
+    /// task list will be reloaded after all bootstrap tasks run.
+    pub bootstrap: bool,
+
     /// help info for this task
     pub help: String,
 
@@ -240,6 +244,8 @@ fn enumerate_task_metadata(
             let name = env_k[8..env_k.len() - 5].to_string();
             let def_name = format!("CT_TASK_{}_DEFAULT", name);
             let default = env.contains_key(&OsString::from(def_name));
+            let bs_name = format!("CT_TASK_{}_BOOTSTRAP", name);
+            let bootstrap = env.contains_key(&OsString::from(bs_name));
             let help_name = format!("CT_TASK_{}_HELP", name);
             let help = env
                 .get(&OsString::from(help_name))
@@ -259,6 +265,7 @@ fn enumerate_task_metadata(
                     name,
                     path,
                     default,
+                    bootstrap,
                     help,
                     task_deps,
                 },

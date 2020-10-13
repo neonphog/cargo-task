@@ -9,6 +9,7 @@ pub fn exec_cargo_task() {
     // any pre-env-load tasks to execute?
     task::check_pre_env_task();
 
+    // load our environment into environment variables
     if env_loader::load().is_err() {
         ct_fatal!(
             r"ERROR: Could not find '{}' directory.
@@ -17,13 +18,51 @@ Have you run 'cargo task ct-init'?",
         );
     }
 
-    let env = cargo_task_util::ct_env();
+    // parse environment vars into env struct
+    let mut env = cargo_task_util::ct_env();
+
     ct_info!("cargo-task running...");
 
+    // check for bootstrap tasks
+    let mut task_list = Vec::new();
+    for (task, task_meta) in env.tasks.iter() {
+        if task_meta.bootstrap {
+            fill_task_deps(
+                &env,
+                &mut task_list,
+                task.to_string(),
+                HashSet::new(),
+            );
+        }
+    }
+
+    // if we are bootstrapping
+    if !task_list.is_empty() {
+        ct_info!("executing bootstrap list: {:?}", task_list);
+        for task in task_list {
+            if !task::check_system_task(task.as_str(), &env) {
+                run_task(&env, &task);
+            }
+        }
+        ct_info!("reloading env post-bootstrap");
+        // TODO - clear env first?
+        if env_loader::load().is_err() {
+            ct_fatal!(
+                r"ERROR: Could not find '{}' directory.
+    Have you run 'cargo task ct-init'?",
+                CARGO_TASK_DIR,
+            );
+        }
+        env = cargo_task_util::ct_env();
+    }
+
+    // load up specified tasks
     let mut task_list = Vec::new();
     for task in env.task_list.iter() {
         fill_task_deps(&env, &mut task_list, task.to_string(), HashSet::new());
     }
+
+    // if no specified tasks - load default tasks
     if task_list.is_empty() {
         for (task, task_meta) in env.tasks.iter() {
             if task_meta.default {
