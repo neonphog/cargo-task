@@ -88,6 +88,7 @@
 pub mod at_at;
 pub mod cargo_task_util;
 mod env_loader;
+mod task;
 
 /// The .cargo-task directory name
 const CARGO_TASK_DIR: &str = ".cargo-task";

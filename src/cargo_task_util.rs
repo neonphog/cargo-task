@@ -26,8 +26,11 @@ pub struct CTEnv {
     /// The root of the cargo task execution environment.
     pub work_dir: PathBuf,
 
-    /// Current args to cargo-task.
-    pub cur_args: Vec<String>,
+    /// Task list specified by user.
+    pub task_list: Vec<String>,
+
+    /// Additional arguments specified by user.
+    pub arg_list: Vec<String>,
 
     /// All tasks defined in the task directory.
     pub tasks: BTreeMap<String, CTTaskMeta>,
@@ -110,17 +113,10 @@ pub fn ct_log(lvl: CTLogLevel, text: &str) {
     let log = if with_color { log } else { "" };
 
     for line in text.split('\n') {
-        if let CTLogLevel::Info = lvl {
-            println!(
-                "{}[ct:{}{}{}{}{}]{} {}",
-                base, log, lvl_name, base, t_colon, task_name, reset, line
-            );
-        } else {
-            eprintln!(
-                "{}[ct:{}{}{}{}{}]{} {}",
-                base, log, lvl_name, base, t_colon, task_name, reset, line
-            );
-        }
+        eprintln!(
+            "{}[ct:{}{}{}{}{}]{} {}",
+            base, log, lvl_name, base, t_colon, task_name, reset, line
+        );
     }
 
     if let CTLogLevel::Fatal = lvl {
@@ -203,7 +199,15 @@ fn priv_new_env() -> Rc<CTEnv> {
             Some(cargo_task_target) => cargo_task_target,
             None => ct_fatal!("CT_TARGET environment variable not set"),
         };
-    let cur_args = match std::env::var_os("CT_CUR_ARGS") {
+    let task_list = match std::env::var_os("CT_TASKS") {
+        Some(args) => args
+            .to_string_lossy()
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
+        None => Vec::with_capacity(0),
+    };
+    let arg_list = match std::env::var_os("CT_ARGS") {
         Some(args) => args
             .to_string_lossy()
             .split_whitespace()
@@ -218,7 +222,8 @@ fn priv_new_env() -> Rc<CTEnv> {
         work_dir,
         cargo_task_path,
         cargo_task_target,
-        cur_args,
+        task_list,
+        arg_list,
         tasks,
     })
 }
