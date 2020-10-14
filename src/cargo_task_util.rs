@@ -15,6 +15,35 @@ pub fn ct_env() -> Rc<CTEnv> {
     CT_ENV.with(|env| env.clone())
 }
 
+/// format! style helper for printing out info messages.
+#[macro_export]
+macro_rules! ct_info {
+    ($($tt:tt)*) => { $crate::cargo_task_util::ct_info(&format!($($tt)*)); };
+}
+
+/// format! style helper for printing out warn messages.
+#[macro_export]
+macro_rules! ct_warn {
+    ($($tt:tt)*) => { $crate::cargo_task_util::ct_warn(&format!($($tt)*)); };
+}
+
+/// format! style helper for printing out fatal messages.
+#[macro_export]
+macro_rules! ct_fatal {
+    ($($tt:tt)*) => { $crate::cargo_task_util::ct_fatal(&format!($($tt)*)); };
+}
+
+/// takes a result, if the result is error, runs ct_fatal!
+#[macro_export]
+macro_rules! ct_check_fatal {
+    ($code:expr) => {
+        match { $code } {
+            Err(e) => $crate::ct_fatal!("{:#?}", e),
+            Ok(r) => r,
+        }
+    };
+}
+
 /// Cargo-task environment info struct.
 #[derive(Debug)]
 pub struct CTEnv {
@@ -63,10 +92,33 @@ impl CTEnv {
     pub fn set_env<N: AsRef<str>, V: AsRef<str>>(&self, name: N, val: V) {
         let name = name.as_ref();
         let val = val.as_ref();
+
         std::env::set_var(name, val);
-        println!("@ct-set-env@ {}={} @@", name, val);
+
+        let directive = format!("@ct-set-env@ {}={} @@\n", name, val);
+
+        let mut p = self.cargo_task_target.clone();
+        let directive_file_name =
+            format!("task-directive-{}.atat", std::process::id());
+        p.push(directive_file_name);
+
+        FRESH_DIRECTIVE.call_once(|| {
+            let _ = std::fs::remove_file(&p);
+        });
+
+        let mut f = ct_check_fatal!(std::fs::OpenOptions::new()
+            .write(true)
+            .append(true)
+            .create(true)
+            .open(&p));
+
+        use std::io::Write;
+        ct_check_fatal!(f.write_all(directive.as_bytes()));
+        ct_check_fatal!(f.sync_all());
     }
 }
+
+static FRESH_DIRECTIVE: std::sync::Once = std::sync::Once::new();
 
 /// Cargo-task task metadata struct.
 #[derive(Debug)]
@@ -152,35 +204,6 @@ pub fn ct_warn(text: &str) {
 pub fn ct_fatal(text: &str) -> ! {
     ct_log(CTLogLevel::Fatal, text);
     std::process::exit(1);
-}
-
-/// format! style helper for printing out info messages.
-#[macro_export]
-macro_rules! ct_info {
-    ($($tt:tt)*) => { $crate::cargo_task_util::ct_info(&format!($($tt)*)); };
-}
-
-/// format! style helper for printing out warn messages.
-#[macro_export]
-macro_rules! ct_warn {
-    ($($tt:tt)*) => { $crate::cargo_task_util::ct_warn(&format!($($tt)*)); };
-}
-
-/// format! style helper for printing out fatal messages.
-#[macro_export]
-macro_rules! ct_fatal {
-    ($($tt:tt)*) => { $crate::cargo_task_util::ct_fatal(&format!($($tt)*)); };
-}
-
-/// takes a result, if the result is error, runs ct_fatal!
-#[macro_export]
-macro_rules! ct_check_fatal {
-    ($code:expr) => {
-        match { $code } {
-            Err(e) => $crate::ct_fatal!("{:#?}", e),
-            Ok(r) => r,
-        }
-    };
 }
 
 // -- private -- //
