@@ -1,6 +1,6 @@
-const CARGO_TOML_PATH: &str = "./Cargo.toml";
-const VER_FILE_PATH: &str = "./ver.rs";
-const BUILD_RS_PATH: &str = "./build.rs";
+const CARGO_TOML_PATH: &str = "Cargo.toml";
+const VER_FILE_PATH: &str = "ver.rs";
+const BUILD_RS_PATH: &str = "build.rs";
 
 /// Generate the ver.rs file in OUT_DIR containing CARGO_TASK_VER constant.
 pub fn main() {
