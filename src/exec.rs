@@ -130,41 +130,11 @@ fn run_task(env: &cargo_task_util::CTEnv, task_name: &str) {
         cmd.arg(arg);
     }
     cmd.stdin(std::process::Stdio::piped());
-    cmd.stdout(std::process::Stdio::piped());
-    cmd.stderr(std::process::Stdio::piped());
-    let mut child_out = Vec::new();
     let res: Result<(), String> = (move || {
         let mut child = cmd.spawn().map_err(|e| format!("{:?}", e))?;
 
         // drop stdin to ensure child exit
         drop(child.stdin.take().unwrap());
-
-        let mut parser = at_at::AtAtParser::new(child.stdout.take().unwrap());
-
-        while let Some(res) = parser.parse() {
-            for item in res {
-                match item {
-                    at_at::AtAtParseItem::KeyValue(k, v) => match k.as_str() {
-                        "ct-set-env" => {
-                            let idx = match v.find('=') {
-                                Some(idx) => idx,
-                                None => ct_fatal!(
-                                    "no '=' found in ct-set-env directive"
-                                ),
-                            };
-                            let n = &v[..idx];
-                            let v = &v[idx + 1..];
-                            std::env::set_var(n, v);
-                            ct_info!("CT-SET-ENV: {}={}", n, v);
-                        }
-                        _ => ct_fatal!("unrecognized AtAt command '{}'", k),
-                    },
-                    at_at::AtAtParseItem::Data(mut d) => {
-                        child_out.append(&mut d);
-                    }
-                }
-            }
-        }
 
         let res: Result<(), String> = (|| {
             let status = child.wait().map_err(|e| format!("{:?}", e))?;
@@ -176,14 +146,36 @@ fn run_task(env: &cargo_task_util::CTEnv, task_name: &str) {
             Ok(())
         })();
 
-        use std::io::{Read, Write};
+        let mut p = env.cargo_task_target.clone();
+        let directive_file_name = format!("task-directive-{}.atat", child.id());
+        p.push(directive_file_name);
 
-        let _ = std::io::stdout().write_all(&child_out);
-
-        let mut err = Vec::new();
-        if child.stderr.take().unwrap().read_to_end(&mut err).is_ok() {
-            let _ = std::io::stderr().write_all(&err);
+        if let Ok(file) = std::fs::File::open(&p) {
+            let mut parser = at_at::AtAtParser::new(file);
+            while let Some(res) = parser.parse() {
+                for item in res {
+                    if let at_at::AtAtParseItem::KeyValue(k, v) = item {
+                        match k.as_str() {
+                            "ct-set-env" => {
+                                let idx = match v.find('=') {
+                                    Some(idx) => idx,
+                                    None => ct_fatal!(
+                                        "no '=' found in ct-set-env directive"
+                                    ),
+                                };
+                                let n = &v[..idx];
+                                let v = &v[idx + 1..];
+                                std::env::set_var(n, v);
+                                ct_info!("CT-SET-ENV: {}={}", n, v);
+                            }
+                            _ => ct_fatal!("unrecognized AtAt command '{}'", k),
+                        }
+                    }
+                }
+            }
         }
+
+        let _ = std::fs::remove_file(&p);
 
         res
     })();
