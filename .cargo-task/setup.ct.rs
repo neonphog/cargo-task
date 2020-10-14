@@ -2,7 +2,14 @@
 # always run this setup task befor any other tasks
 @ct-bootstrap@ true @@
 
+# error if cargo-task client binary is not new enough
+@ct-min-version@ 0.0.7 @@
+
 @ct-help@ Rebuild tasks if cargo_task_util.rs is updated. @@
+
+@ct-cargo-deps@
+num_cpus = "1"
+@@
 */
 
 use std::path::Path;
@@ -24,7 +31,7 @@ fn main() {
     let cpu_count = format!("{}", num_cpus::get());
     env.set_env("CARGO_BUILD_JOBS", &cpu_count);
     env.set_env("NUM_JOBS", &cpu_count);
-    env.set_env("CT_TEST_KEY", "CT_TEST_VAL");
+    env.set_env("MY_TEST_KEY", "MY_TEST_VAL");
 
     let root_time = std::fs::metadata("src/cargo_task_util.rs")
         .unwrap()

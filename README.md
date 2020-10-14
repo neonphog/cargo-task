@@ -30,6 +30,17 @@ cargo task my-task
 
 It's that simple!
 
+### Script-like single file tasks.
+
+If you don't want to commit a whole directory / Cargo.toml etc... you can
+specify cargo-task tasks as single files.
+
+Just create a file in your `.cargo-task` directory named something like
+`my-task.ct.rs` and write it as you would a `main.rs`.
+
+This will also create a `my-task` cargo task. You can even specify cargo
+crate dependencies via AtAt directive `@ct-cargo-deps@` (see below).
+
 ### Customizing how tasks are executed.
 
 `cargo-task` uses a metadata format called AtAt - because it uses `@` signs:
@@ -78,6 +89,19 @@ Also, the cargo-task metadata will be reloaded after bootstrap tasks
 are executed. You can use this to download / install / configure
 additional tasks.
 
+#### Cargo dependencies.
+
+```rust
+/*
+@ct-cargo-deps@
+num_cpus = "1"
+serde = { version = "1", features = [ "derive" ] }
+@@
+*/
+```
+
+Write them just as you would in your Cargo.toml.
+
 #### Task dependencies.
 
 ```rust
@@ -88,6 +112,18 @@ my-second-dependency
 @@
 */
 ```
+
+#### Minimum cargo-task version.
+
+```rust
+/*
+@ct-min-version@ 0.0.7 @@
+*/
+```
+
+Require at least a minimum version of cargo-task to prompt users
+to upgrade if you are depending on features.
+Note, this directive works well when combined with `@ct-bootstrap@`
 
 A whitespace delimited list of tasks that must be run prior to the current
 task. Can be on a single line or multiple lines.

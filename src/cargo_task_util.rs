@@ -126,6 +126,13 @@ pub struct CTTaskMeta {
     /// task name
     pub name: String,
 
+    /// `true` if this task was specified as a single `*.ct.rs` script file.
+    /// `false` if this task was specified as a full crate directory.
+    pub is_script: bool,
+
+    /// Minimum cargo-task utility version required for this task.
+    pub min_version: Option<String>,
+
     /// task "crate" path
     pub path: PathBuf,
 
@@ -138,6 +145,9 @@ pub struct CTTaskMeta {
 
     /// help info for this task
     pub help: String,
+
+    /// any cargo (Cargo.toml) dependencies for a script task
+    pub cargo_deps: Option<String>,
 
     /// any cargo-task task dependencies
     pub task_deps: Vec<String>,
@@ -275,6 +285,12 @@ fn enumerate_task_metadata(
         let env_k = env_k.to_string_lossy();
         if env_k.starts_with("CT_TASK_") && env_k.ends_with("_PATH") {
             let name = env_k[8..env_k.len() - 5].to_string();
+            let script_name = format!("CT_TASK_{}_IS_SCRIPT", name);
+            let is_script = env.contains_key(&OsString::from(script_name));
+            let mv_name = format!("CT_TASK_{}_MIN_VER", name);
+            let min_version = env
+                .get(&OsString::from(mv_name))
+                .map(|v| v.to_string_lossy().to_string());
             let def_name = format!("CT_TASK_{}_DEFAULT", name);
             let default = env.contains_key(&OsString::from(def_name));
             let bs_name = format!("CT_TASK_{}_BOOTSTRAP", name);
@@ -284,6 +300,10 @@ fn enumerate_task_metadata(
                 .get(&OsString::from(help_name))
                 .map(|s| s.to_string_lossy().to_string())
                 .unwrap_or_else(|| "".to_string());
+            let deps_name = format!("CT_TASK_{}_CARGO_DEPS", name);
+            let cargo_deps = env
+                .get(&OsString::from(deps_name))
+                .map(|v| v.to_string_lossy().to_string());
             let deps_name = format!("CT_TASK_{}_TASK_DEPS", name);
             let mut task_deps = Vec::new();
             if let Some(deps) = env.get(&OsString::from(deps_name)) {
@@ -296,10 +316,13 @@ fn enumerate_task_metadata(
                 name.clone(),
                 CTTaskMeta {
                     name,
+                    is_script,
+                    min_version,
                     path,
                     default,
                     bootstrap,
                     help,
+                    cargo_deps,
                     task_deps,
                 },
             );

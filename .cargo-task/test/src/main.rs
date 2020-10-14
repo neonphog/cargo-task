@@ -1,3 +1,5 @@
+//! Make sure we can also still run full-directory-style tasks.
+
 /*
 @ct-help@ Run "cargo test". @@
 */
