@@ -89,6 +89,18 @@ my-second-dependency
 */
 ```
 
+#### Minimum cargo-task version.
+
+```rust
+/*
+@ct-min-version@ 0.0.7 @@
+*/
+```
+
+Require at least a minimum version of cargo-task to prompt users
+to upgrade if you are depending on features.
+Note, this directive works well when combined with `@ct-bootstrap@`
+
 A whitespace delimited list of tasks that must be run prior to the current
 task. Can be on a single line or multiple lines.
 

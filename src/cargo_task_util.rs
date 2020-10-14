@@ -130,6 +130,9 @@ pub struct CTTaskMeta {
     /// `false` if this task was specified as a full crate directory.
     pub is_script: bool,
 
+    /// Minimum cargo-task utility version required for this task.
+    pub min_version: Option<String>,
+
     /// task "crate" path
     pub path: PathBuf,
 
@@ -281,6 +284,10 @@ fn enumerate_task_metadata(
             let name = env_k[8..env_k.len() - 5].to_string();
             let script_name = format!("CT_TASK_{}_IS_SCRIPT", name);
             let is_script = env.contains_key(&OsString::from(script_name));
+            let mv_name = format!("CT_TASK_{}_MIN_VER", name);
+            let min_version = env
+                .get(&OsString::from(mv_name))
+                .map(|v| v.to_string_lossy().to_string());
             let def_name = format!("CT_TASK_{}_DEFAULT", name);
             let default = env.contains_key(&OsString::from(def_name));
             let bs_name = format!("CT_TASK_{}_BOOTSTRAP", name);
@@ -303,6 +310,7 @@ fn enumerate_task_metadata(
                 CTTaskMeta {
                     name,
                     is_script,
+                    min_version,
                     path,
                     default,
                     bootstrap,

@@ -83,6 +83,10 @@ pub fn load() -> Result<(), ()> {
             let script_name = format!("CT_TASK_{}_IS_SCRIPT", task.name);
             set_env(&script_name, "1");
         }
+        if let Some(min_version) = &task.min_version {
+            let mv_name = format!("CT_TASK_{}_MIN_VER", task.name);
+            set_env(&mv_name, min_version);
+        }
         if task.default {
             let def_name = format!("CT_TASK_{}_DEFAULT", task.name);
             set_env(&def_name, "1");
@@ -171,6 +175,7 @@ fn enumerate_task_metadata<P: AsRef<Path>>(
                     .into_string()
                     .expect("failed to convert filename to string"),
                 is_script: false,
+                min_version: meta.min_version,
                 path,
                 default: meta.default,
                 bootstrap: meta.bootstrap,
@@ -185,6 +190,7 @@ fn enumerate_task_metadata<P: AsRef<Path>>(
 }
 
 struct Meta {
+    min_version: Option<String>,
     default: bool,
     bootstrap: bool,
     task_deps: Vec<String>,
@@ -194,6 +200,7 @@ struct Meta {
 impl Default for Meta {
     fn default() -> Self {
         Self {
+            min_version: None,
             default: false,
             bootstrap: false,
             task_deps: Vec::new(),
@@ -212,6 +219,9 @@ fn parse_metadata<P: AsRef<Path>>(path: P) -> Result<Meta, ()> {
         for item in items {
             if let crate::at_at::AtAtParseItem::KeyValue(k, v) = item {
                 match k.as_str() {
+                    "ct-min-version" => {
+                        meta.min_version = Some(v);
+                    }
                     "ct-default" => {
                         if v == "true" {
                             meta.default = true;

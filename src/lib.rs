@@ -87,6 +87,18 @@
 //! */
 //! ```
 //!
+//! ### Minimum cargo-task version.
+//!
+//! ```ignore
+//! /*
+//! @ct-min-version@ 0.0.7 @@
+//! */
+//! ```
+//!
+//! Require at least a minimum version of cargo-task to prompt users
+//! to upgrade if you are depending on features.
+//! Note, this directive works well when combined with `@ct-bootstrap@`
+//!
 //! A whitespace delimited list of tasks that must be run prior to the current
 //! task. Can be on a single line or multiple lines.
 //!
@@ -152,6 +164,8 @@ pub mod at_at;
 pub mod cargo_task_util;
 mod env_loader;
 mod task;
+
+include!(concat!(env!("OUT_DIR"), "/ver.rs"));
 
 /// The .cargo-task directory name
 const CARGO_TASK_DIR: &str = ".cargo-task";

@@ -191,6 +191,17 @@ fn run_task(
         ct_fatal!("invalid task name '{}'", task_name);
     }
 
+    let task_meta = env.tasks.get(task_name).unwrap();
+    if let Some(min_version) = &task_meta.min_version {
+        if parse_semver(crate::CARGO_TASK_VER) < parse_semver(min_version) {
+            ct_fatal!(
+                "cargo-task {} < required min version {}",
+                crate::CARGO_TASK_VER,
+                min_version,
+            );
+        }
+    }
+
     let task = task_build(&env, task_name, did_build_workspace);
 
     ct_info!("run task: '{}'", task_name);
@@ -339,4 +350,17 @@ fn get_newest_time<P: AsRef<Path>>(path: P) -> std::time::SystemTime {
     }
 
     newest_time
+}
+
+/// Parse a semver string into a (usize, usize, usize)
+fn parse_semver(s: &str) -> (usize, usize, usize) {
+    let r = s.split('.').collect::<Vec<_>>();
+    if r.len() != 3 {
+        ct_fatal!("invalid semver: {}", s);
+    }
+    (
+        r[0].parse().unwrap(),
+        r[1].parse().unwrap(),
+        r[2].parse().unwrap(),
+    )
 }
