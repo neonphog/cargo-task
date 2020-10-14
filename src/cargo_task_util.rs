@@ -146,6 +146,9 @@ pub struct CTTaskMeta {
     /// help info for this task
     pub help: String,
 
+    /// any cargo (Cargo.toml) dependencies for a script task
+    pub cargo_deps: Option<String>,
+
     /// any cargo-task task dependencies
     pub task_deps: Vec<String>,
 }
@@ -297,6 +300,10 @@ fn enumerate_task_metadata(
                 .get(&OsString::from(help_name))
                 .map(|s| s.to_string_lossy().to_string())
                 .unwrap_or_else(|| "".to_string());
+            let deps_name = format!("CT_TASK_{}_CARGO_DEPS", name);
+            let cargo_deps = env
+                .get(&OsString::from(deps_name))
+                .map(|v| v.to_string_lossy().to_string());
             let deps_name = format!("CT_TASK_{}_TASK_DEPS", name);
             let mut task_deps = Vec::new();
             if let Some(deps) = env.get(&OsString::from(deps_name)) {
@@ -315,6 +322,7 @@ fn enumerate_task_metadata(
                     default,
                     bootstrap,
                     help,
+                    cargo_deps,
                     task_deps,
                 },
             );

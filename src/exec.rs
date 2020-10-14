@@ -135,21 +135,50 @@ fn generate_build_workspace(env: &cargo_task_util::CTEnv) {
     ct_check_fatal!(std::fs::create_dir_all(&ws));
     for (task, task_meta) in env.tasks.iter() {
         all_tasks.push(task);
-        if task_meta.is_script {
-            ct_fatal!("SCRIPT TASKS NOT YET IMPLEMENTED");
-        } else {
-            let mut task_dir = ws.clone();
-            task_dir.push(task);
-            copy_dir(&task_meta.path, &task_dir);
 
-            let mut util = task_dir;
-            util.push("src");
-            util.push("cargo_task_util.rs");
-            let _ = std::fs::remove_file(&util);
-            let mut content = b"#![allow(dead_code)]\n".to_vec();
-            content.extend_from_slice(CARGO_TASK_UTIL_SRC);
-            ct_check_fatal!(std::fs::write(&util, &content));
+        let mut task_dir = ws.clone();
+        task_dir.push(task);
+
+        if task_meta.is_script {
+            ct_check_fatal!(std::fs::create_dir_all(&task_dir));
+            let mut cargo_toml = task_dir.clone();
+            cargo_toml.push("Cargo.toml");
+            let deps = if let Some(deps) = &task_meta.cargo_deps {
+                deps
+            } else {
+                ""
+            };
+            ct_check_fatal!(std::fs::write(
+                &cargo_toml,
+                format!(
+                    r#"[package]
+name = "{}"
+version = "0.0.1"
+edition = "2018"
+
+[dependencies]
+{}
+"#,
+                    task, deps,
+                )
+            ));
+            let mut src_dir = task_dir.clone();
+            src_dir.push("src");
+            ct_check_fatal!(std::fs::create_dir_all(&src_dir));
+            let mut main_file = src_dir;
+            main_file.push("main.rs");
+            ct_check_fatal!(std::fs::copy(&task_meta.path, &main_file));
+        } else {
+            copy_dir(&task_meta.path, &task_dir);
         }
+
+        let mut util = task_dir;
+        util.push("src");
+        util.push("cargo_task_util.rs");
+        let _ = std::fs::remove_file(&util);
+        let mut content = b"#![allow(dead_code)]\n".to_vec();
+        content.extend_from_slice(CARGO_TASK_UTIL_SRC);
+        ct_check_fatal!(std::fs::write(&util, &content));
     }
 
     ws.push("Cargo.toml");
@@ -326,6 +355,12 @@ fn task_build(
 /// recursively get the newest update time for any file/dir
 fn get_newest_time<P: AsRef<Path>>(path: P) -> std::time::SystemTime {
     let mut newest_time = std::time::SystemTime::UNIX_EPOCH;
+
+    if let Ok(metadata) = std::fs::metadata(&path) {
+        if metadata.is_file() {
+            return metadata.modified().expect("failed to get modified time");
+        }
+    }
 
     for item in std::fs::read_dir(&path).expect("failed to read directory") {
         if let Ok(item) = item {

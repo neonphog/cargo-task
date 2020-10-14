@@ -1,4 +1,4 @@
-use crate::{cargo_task_util::*, CARGO_TASK_DIR};
+use crate::{cargo_task_util::*, CARGO_TASK_DIR, *};
 
 use std::{
     collections::BTreeMap,
@@ -99,6 +99,10 @@ pub fn load() -> Result<(), ()> {
             let def_name = format!("CT_TASK_{}_HELP", task.name);
             set_env(&def_name, &task.help);
         }
+        if let Some(cargo_deps) = task.cargo_deps {
+            let deps_name = format!("CT_TASK_{}_CARGO_DEPS", task.name);
+            set_env(&deps_name, cargo_deps);
+        }
         let mut task_deps = "".to_string();
         for task_dep in task.task_deps.iter() {
             if !task_deps.is_empty() {
@@ -150,39 +154,50 @@ fn enumerate_task_metadata<P: AsRef<Path>>(
         std::fs::read_dir(&cargo_task_path).expect("failed to read directory")
     {
         if let Ok(item) = item {
-            if !item.file_type().expect("failed to read file type").is_dir()
-                || item.file_name() == "target"
-            {
+            if item.file_name() == "target" {
                 continue;
             }
-            let path = item.path();
-            let mut main_path = path.clone();
-            main_path.push("src");
-            main_path.push("main.rs");
-            let meta = match parse_metadata(&main_path) {
-                Ok(meta) => meta,
-                Err(_) => {
-                    crate::ct_warn!(
-                        "could not parse task {:?}",
-                        item.file_name()
-                    );
-                    continue;
+
+            let file_name = item.file_name().to_string_lossy().to_string();
+            let file_type = ct_check_fatal!(item.file_type());
+
+            if file_type.is_file() && file_name.ends_with(".ct.rs") {
+                let path = item.path();
+                let meta = ct_check_fatal!(parse_metadata(&path));
+                let meta = CTTaskMeta {
+                    name: file_name[..file_name.len() - 6].to_string(),
+                    is_script: true,
+                    min_version: meta.min_version,
+                    path,
+                    default: meta.default,
+                    bootstrap: meta.bootstrap,
+                    help: meta.help,
+                    cargo_deps: meta.cargo_deps,
+                    task_deps: meta.task_deps,
+                };
+                out.insert(meta.name.clone(), meta);
+            } else if file_type.is_dir() {
+                let path = item.path();
+                let mut main_path = path.clone();
+                main_path.push("src");
+                main_path.push("main.rs");
+                let meta = ct_check_fatal!(parse_metadata(&main_path));
+                if meta.cargo_deps.is_some() {
+                    ct_fatal!("@ct-cargo-deps@ are illegal in directory-style task crates - just specify your deps in your Cargo.toml file");
                 }
-            };
-            let meta = CTTaskMeta {
-                name: item
-                    .file_name()
-                    .into_string()
-                    .expect("failed to convert filename to string"),
-                is_script: false,
-                min_version: meta.min_version,
-                path,
-                default: meta.default,
-                bootstrap: meta.bootstrap,
-                help: meta.help,
-                task_deps: meta.task_deps,
-            };
-            out.insert(meta.name.clone(), meta);
+                let meta = CTTaskMeta {
+                    name: file_name,
+                    is_script: false,
+                    min_version: meta.min_version,
+                    path,
+                    default: meta.default,
+                    bootstrap: meta.bootstrap,
+                    help: meta.help,
+                    cargo_deps: None,
+                    task_deps: meta.task_deps,
+                };
+                out.insert(meta.name.clone(), meta);
+            }
         }
     }
 
@@ -193,6 +208,7 @@ struct Meta {
     min_version: Option<String>,
     default: bool,
     bootstrap: bool,
+    cargo_deps: Option<String>,
     task_deps: Vec<String>,
     help: String,
 }
@@ -203,6 +219,7 @@ impl Default for Meta {
             min_version: None,
             default: false,
             bootstrap: false,
+            cargo_deps: None,
             task_deps: Vec::new(),
             help: "".to_string(),
         }
@@ -214,10 +231,10 @@ fn parse_metadata<P: AsRef<Path>>(path: P) -> Result<Meta, ()> {
     let mut meta = Meta::default();
 
     let file = std::fs::File::open(&path).map_err(|_| ())?;
-    let mut parser = crate::at_at::AtAtParser::new(file);
+    let mut parser = at_at::AtAtParser::new(file);
     while let Some(items) = parser.parse() {
         for item in items {
-            if let crate::at_at::AtAtParseItem::KeyValue(k, v) = item {
+            if let at_at::AtAtParseItem::KeyValue(k, v) = item {
                 match k.as_str() {
                     "ct-min-version" => {
                         meta.min_version = Some(v);
@@ -232,8 +249,8 @@ fn parse_metadata<P: AsRef<Path>>(path: P) -> Result<Meta, ()> {
                             meta.bootstrap = true;
                         }
                     }
-                    "ct-dependencies" => {
-                        crate::ct_fatal!("deps not allowed in full directory tasks - just specify them in your Cargo.toml");
+                    "ct-cargo-deps" => {
+                        meta.cargo_deps = Some(v);
                     }
                     "ct-task-deps" => {
                         for dep in v.split_whitespace() {

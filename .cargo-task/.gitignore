@@ -1,5 +1,1 @@
 /target
-cargo_task_util.rs
-Cargo.toml
-Cargo.lock
-!*/Cargo.toml

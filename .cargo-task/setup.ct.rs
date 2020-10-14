@@ -6,6 +6,10 @@
 @ct-min-version@ 0.0.7 @@
 
 @ct-help@ Rebuild tasks if cargo_task_util.rs is updated. @@
+
+@ct-cargo-deps@
+num_cpus = "1"
+@@
 */
 
 use std::path::Path;
