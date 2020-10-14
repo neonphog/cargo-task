@@ -24,7 +24,7 @@ fn main() {
     let cpu_count = format!("{}", num_cpus::get());
     env.set_env("CARGO_BUILD_JOBS", &cpu_count);
     env.set_env("NUM_JOBS", &cpu_count);
-    env.set_env("CT_TEST_KEY", "CT_TEST_VAL");
+    env.set_env("MY_TEST_KEY", "MY_TEST_VAL");
 
     let root_time = std::fs::metadata("src/cargo_task_util.rs")
         .unwrap()

@@ -126,6 +126,10 @@ pub struct CTTaskMeta {
     /// task name
     pub name: String,
 
+    /// `true` if this task was specified as a single `*.ct.rs` script file.
+    /// `false` if this task was specified as a full crate directory.
+    pub is_script: bool,
+
     /// task "crate" path
     pub path: PathBuf,
 
@@ -275,6 +279,8 @@ fn enumerate_task_metadata(
         let env_k = env_k.to_string_lossy();
         if env_k.starts_with("CT_TASK_") && env_k.ends_with("_PATH") {
             let name = env_k[8..env_k.len() - 5].to_string();
+            let script_name = format!("CT_TASK_{}_IS_SCRIPT", name);
+            let is_script = env.contains_key(&OsString::from(script_name));
             let def_name = format!("CT_TASK_{}_DEFAULT", name);
             let default = env.contains_key(&OsString::from(def_name));
             let bs_name = format!("CT_TASK_{}_BOOTSTRAP", name);
@@ -296,6 +302,7 @@ fn enumerate_task_metadata(
                 name.clone(),
                 CTTaskMeta {
                     name,
+                    is_script,
                     path,
                     default,
                     bootstrap,

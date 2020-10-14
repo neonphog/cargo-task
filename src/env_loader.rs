@@ -10,9 +10,26 @@ fn set_env<N: AsRef<OsStr>, V: AsRef<OsStr>>(n: N, v: V) {
     std::env::set_var(n, v);
 }
 
+/// Delete any / all 'CT_' environment variables,
+/// in preparation for setting new ones.
+fn clear() {
+    for (k, _v) in std::env::vars_os() {
+        let i = k.to_string_lossy();
+        let mut i = i.chars();
+        if i.next() == Some('C')
+            && i.next() == Some('T')
+            && i.next() == Some('_')
+        {
+            std::env::remove_var(k);
+        }
+    }
+}
+
 /// Gather understanding of our cargo-task location.
 /// Translate it all into environment variables that CTEnv can read.
 pub fn load() -> Result<(), ()> {
+    clear();
+
     // cargo binary path
     let cargo_path = std::env::var_os("CARGO")
         .map(PathBuf::from)
@@ -62,6 +79,10 @@ pub fn load() -> Result<(), ()> {
     for (_, task) in tasks {
         let path_name = format!("CT_TASK_{}_PATH", task.name);
         set_env(&path_name, &task.path);
+        if task.is_script {
+            let script_name = format!("CT_TASK_{}_IS_SCRIPT", task.name);
+            set_env(&script_name, "1");
+        }
         if task.default {
             let def_name = format!("CT_TASK_{}_DEFAULT", task.name);
             set_env(&def_name, "1");
@@ -149,6 +170,7 @@ fn enumerate_task_metadata<P: AsRef<Path>>(
                     .file_name()
                     .into_string()
                     .expect("failed to convert filename to string"),
+                is_script: false,
                 path,
                 default: meta.default,
                 bootstrap: meta.bootstrap,
