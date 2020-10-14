@@ -189,6 +189,9 @@ pub mod cargo_task_util;
 mod env_loader;
 mod task;
 
+#[cfg(windows)]
+include!(concat!(env!("OUT_DIR"), "\\ver.rs"));
+#[cfg(not(windows))]
 include!(concat!(env!("OUT_DIR"), "/ver.rs"));
 
 /// The .cargo-task directory name
