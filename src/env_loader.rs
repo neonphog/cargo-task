@@ -154,11 +154,11 @@ fn enumerate_task_metadata<P: AsRef<Path>>(
         std::fs::read_dir(&cargo_task_path).expect("failed to read directory")
     {
         if let Ok(item) = item {
-            if item.file_name() == "target" {
+            let file_name = item.file_name().to_string_lossy().to_string();
+            if &file_name == "target" || file_name.starts_with('.') {
                 continue;
             }
 
-            let file_name = item.file_name().to_string_lossy().to_string();
             let file_type = ct_check_fatal!(item.file_type());
 
             if file_type.is_file() && file_name.ends_with(".ct.rs") {
