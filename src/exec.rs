@@ -58,7 +58,7 @@ Have you run 'cargo task ct-init'?",
         clean_build_workspace(&env);
         did_build_workspace = false;
 
-        env = cargo_task_util::ct_env();
+        env = cargo_task_util::ct_force_new_env();
     }
 
     // load up specified tasks

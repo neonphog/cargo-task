@@ -10,9 +10,19 @@
 
 use std::{collections::BTreeMap, ffi::OsString, path::PathBuf, rc::Rc};
 
+/// Force install a new CTEnv
+#[doc(hidden)]
+pub(crate) fn ct_force_new_env() -> Rc<CTEnv> {
+    CT_ENV.with(|env| {
+        let mut env = env.lock().unwrap();
+        *env = priv_new_env();
+        env.clone()
+    })
+}
+
 /// Fetch the current CTEnv
 pub fn ct_env() -> Rc<CTEnv> {
-    CT_ENV.with(|env| env.clone())
+    CT_ENV.with(|env| env.lock().unwrap().clone())
 }
 
 /// format! style helper for printing out info messages.
@@ -224,7 +234,7 @@ const DEFAULT_WITH_COLOR: bool = false;
 const DEFAULT_WITH_COLOR: bool = true;
 
 thread_local! {
-    static CT_ENV: Rc<CTEnv> = priv_new_env();
+    static CT_ENV: std::sync::Mutex<Rc<CTEnv>> = std::sync::Mutex::new(priv_new_env());
 }
 
 /// Gather data from environment variables to create a cargo task "env" item.
