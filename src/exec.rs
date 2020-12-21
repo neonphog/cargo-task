@@ -44,6 +44,9 @@ Have you run 'cargo task ct-init'?",
         ct_info!("executing bootstrap list: {:?}", task_list);
         for task in task_list {
             if !task::check_system_task(task.as_str(), &env) {
+                // run ct-init to ensure our cargo_task_util crate is up-to-date
+                task::ct_init();
+
                 run_task(&env, &task, &mut did_build_workspace);
             }
         }
@@ -85,6 +88,9 @@ Have you run 'cargo task ct-init'?",
 
     for task in task_list {
         if !task::check_system_task(task.as_str(), &env) {
+            // run ct-init to ensure our cargo_task_util crate is up-to-date
+            task::ct_init();
+
             run_task(&env, &task, &mut did_build_workspace);
         }
     }

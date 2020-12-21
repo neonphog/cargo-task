@@ -52,12 +52,6 @@ fn check_util_cargo_toml() {
     cargo_toml.push("cargo_task_util");
     cargo_toml.push("Cargo.toml");
 
-    if let Ok(meta) = std::fs::metadata(&cargo_toml) {
-        if meta.is_file() {
-            return;
-        }
-    }
-
     ct_check_fatal!(std::fs::write(
         &cargo_toml,
         r#"[package]
@@ -77,12 +71,6 @@ fn check_util_lib_rs() {
 
     lib_rs.push("lib.rs");
 
-    if let Ok(meta) = std::fs::metadata(&lib_rs) {
-        if meta.is_file() {
-            return;
-        }
-    }
-
     const CONTENT: &str = r#"#![allow(dead_code)]
 pub mod _cargo_task_util;
 pub use _cargo_task_util::*;
@@ -99,12 +87,6 @@ fn check_util_ctu_rs() {
     let _ = std::fs::create_dir_all(&ctu_rs);
 
     ctu_rs.push("_cargo_task_util.rs");
-
-    if let Ok(meta) = std::fs::metadata(&ctu_rs) {
-        if meta.is_file() {
-            return;
-        }
-    }
 
     ct_check_fatal!(std::fs::write(&ctu_rs, CARGO_TASK_UTIL_SRC));
 }
