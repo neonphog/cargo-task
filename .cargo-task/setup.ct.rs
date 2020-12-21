@@ -14,7 +14,6 @@ num_cpus = "1"
 
 use std::path::Path;
 
-mod cargo_task_util;
 use cargo_task_util::*;
 
 fn mtime<P: AsRef<Path>>(p: P) -> Result<std::time::SystemTime, ()> {
@@ -33,7 +32,7 @@ fn main() {
     env.set_env("NUM_JOBS", &cpu_count);
     env.set_env("MY_TEST_KEY", "MY_TEST_VAL");
 
-    let root_time = std::fs::metadata("src/cargo_task_util.rs")
+    let root_time = std::fs::metadata("src/_cargo_task_util.rs")
         .unwrap()
         .modified()
         .unwrap();
@@ -43,7 +42,9 @@ fn main() {
     // so if that file has been updated we need to touch the task file.
     for task in std::fs::read_dir(".cargo-task").unwrap() {
         if let Ok(task) = task {
-            if task.file_name() == "target" {
+            if task.file_name() == "target"
+                || task.file_name() == "cargo_task_util"
+            {
                 continue;
             }
             if task.file_type().unwrap().is_dir() {

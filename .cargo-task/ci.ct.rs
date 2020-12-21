@@ -9,7 +9,7 @@ test
 @@
 */
 
-mod cargo_task_util;
+use cargo_task_util::*;
 
 fn main() {
     ct_info!("ci task is a no-op");

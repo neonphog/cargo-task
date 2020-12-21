@@ -22,7 +22,7 @@ pub fn help() {
     );
 
     if env_loader::load().is_ok() {
-        let env = cargo_task_util::ct_env();
+        let env = _cargo_task_util::ct_env();
         println!("# locally-defined tasks (* - default, ^ - bootstrap) #\n");
 
         let mut keys = env.tasks.keys().collect::<Vec<_>>();

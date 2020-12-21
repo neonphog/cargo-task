@@ -13,8 +13,7 @@ readme
 @@
 */
 
-mod cargo_task_util;
-//use cargo_task_util::*;
+use cargo_task_util::*;
 
 fn main() {
     assert_eq!("MY_TEST_VAL", &std::env::var("MY_TEST_KEY").unwrap());
