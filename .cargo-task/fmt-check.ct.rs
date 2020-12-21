@@ -2,7 +2,6 @@
 @ct-help@ Run "cargo fmt --check" enforce style. @@
 */
 
-mod cargo_task_util;
 use cargo_task_util::*;
 
 use std::process::Stdio;

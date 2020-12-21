@@ -46,7 +46,7 @@ pub fn check_pre_env_task() {
 /// if not - return false - exec will attempt to run a user-defined task.
 pub fn check_system_task(
     task_name: &str,
-    env: &cargo_task_util::CTEnv,
+    env: &_cargo_task_util::CTEnv,
 ) -> bool {
     match task_name {
         "ct-meta" => {

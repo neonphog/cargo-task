@@ -184,8 +184,8 @@
 //! }
 //! ```
 
+pub mod _cargo_task_util;
 pub mod at_at;
-pub mod cargo_task_util;
 mod env_loader;
 mod task;
 
@@ -216,7 +216,7 @@ const CT_DIR_GIT_IGNORE_SRC: &[u8] = include_bytes!(concat!(
 ));
 
 /// Source-code content of cargo_task_util.rs
-const CARGO_TASK_UTIL_SRC: &[u8] = include_bytes!("cargo_task_util.rs");
+const CARGO_TASK_UTIL_SRC: &[u8] = include_bytes!("_cargo_task_util.rs");
 
 mod exec;
 pub use exec::*;

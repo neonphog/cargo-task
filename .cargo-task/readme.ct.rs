@@ -2,7 +2,6 @@
 @ct-help@ Generate a README.md from our rust lib.rs docs. @@
 */
 
-mod cargo_task_util;
 use cargo_task_util::*;
 use std::process::Stdio;
 

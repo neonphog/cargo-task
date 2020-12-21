@@ -19,7 +19,7 @@ Have you run 'cargo task ct-init'?",
     }
 
     // parse environment vars into env struct
-    let mut env = cargo_task_util::ct_env();
+    let mut env = _cargo_task_util::ct_env();
 
     ct_info!("cargo-task running...");
 
@@ -58,7 +58,7 @@ Have you run 'cargo task ct-init'?",
         clean_build_workspace(&env);
         did_build_workspace = false;
 
-        env = cargo_task_util::ct_force_new_env();
+        env = _cargo_task_util::ct_force_new_env();
     }
 
     // load up specified tasks
@@ -96,7 +96,7 @@ Have you run 'cargo task ct-init'?",
 
 /// fill task deps
 fn fill_task_deps(
-    env: &cargo_task_util::CTEnv,
+    env: &_cargo_task_util::CTEnv,
     task_list: &mut Vec<String>,
     task: String,
     mut visited: HashSet<String>,
@@ -121,18 +121,30 @@ fn fill_task_deps(
 }
 
 /// delete the cargo-task build workspace
-fn clean_build_workspace(env: &cargo_task_util::CTEnv) {
+fn clean_build_workspace(env: &_cargo_task_util::CTEnv) {
     let mut ws = env.cargo_task_target.clone();
     ws.push("ct-workspace");
     let _ = std::fs::remove_dir_all(&ws);
 }
 
 /// prep the cargo-task build workspace
-fn generate_build_workspace(env: &cargo_task_util::CTEnv) {
+fn generate_build_workspace(env: &_cargo_task_util::CTEnv) {
     let mut all_tasks = Vec::new();
     let mut ws = env.cargo_task_target.clone();
     ws.push("ct-workspace");
     ct_check_fatal!(std::fs::create_dir_all(&ws));
+
+    // copy in our cargo_task_util crate
+    let mut ctu_src = env.cargo_task_path.clone();
+    ctu_src.push("cargo_task_util");
+    let mut ctu_dest = ws.clone();
+    ctu_dest.push("cargo_task_util");
+    if let Ok(meta) = std::fs::metadata(&ctu_src) {
+        if meta.is_dir() {
+            copy_dir(&ctu_src, &ctu_dest);
+        }
+    }
+
     for (task, task_meta) in env.tasks.iter() {
         all_tasks.push(task);
 
@@ -157,6 +169,7 @@ version = "0.0.1"
 edition = "2018"
 
 [dependencies]
+cargo_task_util = {{ path = "../cargo_task_util" }}
 {}
 "#,
                     task, deps,
@@ -172,6 +185,7 @@ edition = "2018"
             copy_dir(&task_meta.path, &task_dir);
         }
 
+        /*
         let mut util = task_dir;
         util.push("src");
         util.push("cargo_task_util.rs");
@@ -179,7 +193,12 @@ edition = "2018"
         let mut content = b"#![allow(dead_code)]\n".to_vec();
         content.extend_from_slice(CARGO_TASK_UTIL_SRC);
         ct_check_fatal!(std::fs::write(&util, &content));
+        */
     }
+
+    // also add our cargo_task_util dep crate to the workspace
+    let ctu = "cargo_task_util".to_string();
+    all_tasks.push(&ctu);
 
     ws.push("Cargo.toml");
     ct_check_fatal!(std::fs::write(
@@ -212,7 +231,7 @@ fn copy_dir<S: AsRef<Path>, D: AsRef<Path>>(src: S, dest: D) {
 
 /// run a specific task
 fn run_task(
-    env: &cargo_task_util::CTEnv,
+    env: &_cargo_task_util::CTEnv,
     task_name: &str,
     did_build_workspace: &mut bool,
 ) {
@@ -300,7 +319,7 @@ fn run_task(
 
 /// build a specific task crate
 fn task_build(
-    env: &cargo_task_util::CTEnv,
+    env: &_cargo_task_util::CTEnv,
     task_name: &str,
     did_build_workspace: &mut bool,
 ) -> PathBuf {

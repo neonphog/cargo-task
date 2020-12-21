@@ -1,4 +1,4 @@
-use crate::{cargo_task_util::*, CARGO_TASK_DIR, *};
+use crate::{_cargo_task_util::*, CARGO_TASK_DIR, *};
 
 use std::{
     collections::BTreeMap,
@@ -27,7 +27,7 @@ fn clear() {
 
 /// Gather understanding of our cargo-task location.
 /// Translate it all into environment variables that CTEnv can read.
-pub fn load() -> Result<(), ()> {
+pub fn load() -> Result<(), &'static str> {
     clear();
 
     // cargo binary path
@@ -121,13 +121,14 @@ pub fn load() -> Result<(), ()> {
 
 /// Searches up the directories from the current dir,
 /// looking for a directory containing a '.cargo-task' directory.
-fn find_cargo_task_work_dir() -> Result<PathBuf, ()> {
-    let mut cargo_task_path = std::fs::canonicalize(".").map_err(|_| ())?;
+fn find_cargo_task_work_dir() -> Result<PathBuf, &'static str> {
+    const E: &str = "failed to find .cargo-task dir";
+    let mut cargo_task_path = std::fs::canonicalize(".").map_err(|_| E)?;
 
     loop {
-        for item in std::fs::read_dir(&cargo_task_path).map_err(|_| ())? {
+        for item in std::fs::read_dir(&cargo_task_path).map_err(|_| E)? {
             if let Ok(item) = item {
-                if !item.file_type().map_err(|_| ())?.is_dir() {
+                if !item.file_type().map_err(|_| E)?.is_dir() {
                     continue;
                 }
                 if item.file_name() == CARGO_TASK_DIR {
@@ -141,7 +142,7 @@ fn find_cargo_task_work_dir() -> Result<PathBuf, ()> {
         }
     }
 
-    Err(())
+    Err(E)
 }
 
 /// Searches CARGO_TASK_DIR for defined tasks, and loads up metadata.
@@ -155,7 +156,10 @@ fn enumerate_task_metadata<P: AsRef<Path>>(
     {
         if let Ok(item) = item {
             let file_name = item.file_name().to_string_lossy().to_string();
-            if &file_name == "target" || file_name.starts_with('.') {
+            if &file_name == "cargo_task_util"
+                || &file_name == "target"
+                || file_name.starts_with('.')
+            {
                 continue;
             }
 
@@ -227,10 +231,12 @@ impl Default for Meta {
 }
 
 /// Parse meta-data info from the rust main source file.
-fn parse_metadata<P: AsRef<Path>>(path: P) -> Result<Meta, ()> {
+fn parse_metadata<P: AsRef<Path>>(path: P) -> Result<Meta, String> {
     let mut meta = Meta::default();
 
-    let file = std::fs::File::open(&path).map_err(|_| ())?;
+    let file = std::fs::File::open(&path).map_err(|e| {
+        format!("parse metadata error: {:?}: {:?}", path.as_ref(), e,)
+    })?;
     let mut parser = at_at::AtAtParser::new(file);
     while let Some(items) = parser.parse() {
         for item in items {
