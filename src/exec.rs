@@ -175,7 +175,7 @@ version = "0.0.1"
 edition = "2018"
 
 [dependencies]
-cargo_task_util = {{ path = "../cargo_task_util" }}
+cargo_task_util = "0.0.1"
 {}
 "#,
                     task, deps,
@@ -212,6 +212,9 @@ cargo_task_util = {{ path = "../cargo_task_util" }}
         format!(
             r#"[workspace]
 members = {:?}
+
+[patch.crates-io]
+cargo_task_util = {{ path = "cargo_task_util" }}
 "#,
             all_tasks
         ),
