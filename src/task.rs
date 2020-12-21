@@ -2,6 +2,8 @@ use crate::*;
 
 mod help;
 pub use help::*;
+mod version;
+pub use version::*;
 mod ct_init;
 pub use ct_init::*;
 mod ct_meta;
@@ -26,6 +28,11 @@ pub fn check_pre_env_task() {
 
     if args.contains(&"--help".to_string()) {
         help();
+        std::process::exit(0);
+    }
+
+    if args.contains(&"--version".to_string()) {
+        version();
         std::process::exit(0);
     }
 

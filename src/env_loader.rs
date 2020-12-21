@@ -106,7 +106,7 @@ pub fn load() -> Result<(), ()> {
         let mut task_deps = "".to_string();
         for task_dep in task.task_deps.iter() {
             if !task_deps.is_empty() {
-                task_deps.push_str(" ");
+                task_deps.push(' ');
             }
             task_deps.push_str(task_dep);
         }
