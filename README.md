@@ -130,7 +130,7 @@ Note, this directive works well when combined with `@ct-bootstrap@`
 
 ### The magic `cargo_task_util` dependency.
 
-- [cargo_task_util on docs.rs](https://docs.rs/cargo-task/latest/cargo_task/cargo_task_util/index.html)
+- [cargo_task_util on docs.rs](https://docs.rs/cargo-task/latest/cargo_task/_cargo_task_util/index.html)
 
 This module will be available at the root of your crate during build time.
 To include it, simply add a `mod` directive in your `main.rs` file.
