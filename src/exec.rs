@@ -175,7 +175,7 @@ version = "0.0.1"
 edition = "2018"
 
 [dependencies]
-cargo_task_util = "0.0.1"
+cargo_task_util = "*"
 {}
 "#,
                     task, deps,

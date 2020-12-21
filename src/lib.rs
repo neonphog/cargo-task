@@ -126,19 +126,29 @@
 //! to upgrade if you are depending on features.
 //! Note, this directive works well when combined with `@ct-bootstrap@`
 //!
-//! ## The magic `cargo_task_util` module.
+//! ## The magic `cargo_task_util` dependency.
 //!
 //! - [cargo_task_util on docs.rs](https://docs.rs/cargo-task/latest/cargo_task/cargo_task_util/index.html)
 //!
 //! This module will be available at the root of your crate during build time.
 //! To include it, simply add a `mod` directive in your `main.rs` file.
+//! A crate dependency with the same pub contents of this module will be
+//! available to your crate a run-time. The dependency is automatically added
+//! to script-type tasks.
+//!
+//! To add it to crate-type tasks simply include the dependency in your
+//! Cargo.toml:
+//!
+//! ```ignore
+//! [dependencies]
+//! cargo_task_util = "*"
+//! ```
 //!
 //! ```ignore
 //! /*
 //! @ct-default@ true @@
 //! */
 //!
-//! mod cargo_task_util;
 //! use cargo_task_util::*;
 //!
 //! fn main() {
@@ -152,6 +162,37 @@
 //!     // also includes cargo-task special log helpers
 //!     ct_warn!("ahh, a warning! {:?}", std::time::SystemTime::now());
 //! }
+//! ```
+//!
+//! ### Configuring tasks and the `cargo_task_util` crate for direct execution.
+//!
+//! So, you want to run your cargo tasks directly? The `cargo_task_util` crate
+//! is generated into your .cargo-task directory, but is ignored from git
+//! by a `.cargo-task/.gitignore` file. You can delete the .gitignore lines
+//! to check the crate into version control.
+//!
+//! Due to a windows pathing quirk, we need to use a workspace-level `[patch]`
+//! directive to make this dependency work.
+//!
+//! If you want a root workspace `Cargo.toml`, you can create one at the root
+//! of your project, and include all your crates, and your task crates.
+//!
+//! If, instead, you want to keep the task crates in a separate workspace,
+//! you can put a workspace `Cargo.toml` file in your `.cargo-task` directory.
+//! (You will also need to remove that line from your `.cargo-task/.gitignore`)
+//!
+//! This example is for a `.cargo-task/Cargo.toml` workspace. If your workspace
+//! root is a different directory, you'll have to adjust the paths.
+//!
+//! ```ignore
+//! [workspace]
+//! members = [
+//!     "cargo_task_util",
+//!     "my_task_crate",
+//! ]
+//!
+//! [patch.crates-io]
+//! cargo_task_util = { path = "cargo_task_util" }
 //! ```
 //!
 //! ## Exporting environment variables to configure other tasks.
