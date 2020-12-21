@@ -190,16 +190,6 @@ cargo_task_util = "*"
         } else {
             copy_dir(&task_meta.path, &task_dir);
         }
-
-        /*
-        let mut util = task_dir;
-        util.push("src");
-        util.push("cargo_task_util.rs");
-        let _ = std::fs::remove_file(&util);
-        let mut content = b"#![allow(dead_code)]\n".to_vec();
-        content.extend_from_slice(CARGO_TASK_UTIL_SRC);
-        ct_check_fatal!(std::fs::write(&util, &content));
-        */
     }
 
     // also add our cargo_task_util dep crate to the workspace
