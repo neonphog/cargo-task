@@ -2,6 +2,7 @@ use crate::*;
 
 /// Print user-friendly usage info.
 pub fn help() {
+    task::version::version();
     println!(
         r#"
 # cargo task usage #
