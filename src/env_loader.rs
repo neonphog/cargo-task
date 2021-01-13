@@ -123,7 +123,7 @@ pub fn load() -> Result<(), &'static str> {
 /// looking for a directory containing a '.cargo-task' directory.
 fn find_cargo_task_work_dir() -> Result<PathBuf, &'static str> {
     const E: &str = "failed to find .cargo-task dir";
-    let mut cargo_task_path = std::fs::canonicalize(".").map_err(|_| E)?;
+    let mut cargo_task_path = std::env::current_dir().map_err(|_| E)?;
 
     loop {
         for item in std::fs::read_dir(&cargo_task_path).map_err(|_| E)? {
