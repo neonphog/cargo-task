@@ -1,6 +1,6 @@
-#![forbid(unsafe_code)]
-#![forbid(missing_docs)]
-#![forbid(warnings)]
+#![deny(unsafe_code)]
+#![deny(missing_docs)]
+#![deny(warnings)]
 //! Ultra-Lightweight Zero-Dependency Rust Cargo Task Runner.
 //!
 //! - Platform Agnostic - runs on any platform that cargo runs on.

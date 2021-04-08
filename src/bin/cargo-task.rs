@@ -1,6 +1,6 @@
-#![forbid(unsafe_code)]
-#![forbid(missing_docs)]
-#![forbid(warnings)]
+#![deny(unsafe_code)]
+#![deny(missing_docs)]
+#![deny(warnings)]
 //! cargo-task binary
 
 /// cargo-task entrypoint
