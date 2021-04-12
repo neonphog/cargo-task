@@ -1,3 +1,4 @@
+#![allow(clippy::upper_case_acronyms)]
 #![deny(unsafe_code)]
 #![deny(missing_docs)]
 #![deny(warnings)]

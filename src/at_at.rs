@@ -82,9 +82,7 @@ impl<R: Read> AtAtParser<R> {
             return None;
         }
 
-        let mut out = Vec::new();
-
-        out.push(AtAtParseItem::Data(self.raw_buf[..read].to_vec()));
+        let mut out = vec![AtAtParseItem::Data(self.raw_buf[..read].to_vec())];
 
         for c in self.raw_buf[..read].iter().cloned() {
             self.state = Some(match self.state.take().unwrap() {

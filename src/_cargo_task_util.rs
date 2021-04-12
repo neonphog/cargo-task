@@ -286,6 +286,7 @@ fn priv_new_env() -> Rc<CTEnv> {
 }
 
 /// Loads task metadata from environment.
+#[allow(clippy::unnecessary_wraps)]
 fn enumerate_task_metadata(
 ) -> Result<BTreeMap<String, CTTaskMeta>, &'static str> {
     let mut out = BTreeMap::new();
