@@ -1,5 +1,5 @@
 /*
-# always run this setup task befor any other tasks
+# always run this setup task before any other tasks
 @ct-bootstrap@ true @@
 
 # error if cargo-task client binary is not new enough
