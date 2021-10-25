@@ -28,13 +28,13 @@ pub fn ct_env() -> Rc<CTEnv> {
 /// format! style helper for printing out info messages.
 #[macro_export]
 macro_rules! ct_info {
-    ($($tt:tt)*) => { $crate::_cargo_task_util::ct_info(&format!($($tt)*)); };
+    ($($tt:tt)*) => { $crate::_cargo_task_util::ct_info(&format!($($tt)*)) };
 }
 
 /// format! style helper for printing out warn messages.
 #[macro_export]
 macro_rules! ct_warn {
-    ($($tt:tt)*) => { $crate::_cargo_task_util::ct_warn(&format!($($tt)*)); };
+    ($($tt:tt)*) => { $crate::_cargo_task_util::ct_warn(&format!($($tt)*)) };
 }
 
 /// format! style helper for printing out fatal messages.
