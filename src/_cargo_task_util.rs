@@ -40,7 +40,7 @@ macro_rules! ct_warn {
 /// format! style helper for printing out fatal messages.
 #[macro_export]
 macro_rules! ct_fatal {
-    ($($tt:tt)*) => { $crate::_cargo_task_util::ct_fatal(&format!($($tt)*)); };
+    ($($tt:tt)*) => { $crate::_cargo_task_util::ct_fatal(&format!($($tt)*)) };
 }
 
 /// takes a result, if the result is error, runs ct_fatal!
