@@ -214,16 +214,14 @@ cargo_task_util = {{ path = "cargo_task_util" }}
 /// recursively copy a whole directory
 fn copy_dir<S: AsRef<Path>, D: AsRef<Path>>(src: S, dest: D) {
     ct_check_fatal!(std::fs::create_dir_all(&dest));
-    for item in ct_check_fatal!(std::fs::read_dir(src)) {
-        if let Ok(item) = item {
-            let meta = ct_check_fatal!(item.metadata());
-            let mut dest = dest.as_ref().to_owned();
-            dest.push(item.file_name());
-            if meta.is_dir() {
-                copy_dir(item.path(), &dest);
-            } else if meta.is_file() {
-                ct_check_fatal!(std::fs::copy(item.path(), &dest));
-            }
+    for item in ct_check_fatal!(std::fs::read_dir(src)).flatten() {
+        let meta = ct_check_fatal!(item.metadata());
+        let mut dest = dest.as_ref().to_owned();
+        dest.push(item.file_name());
+        if meta.is_dir() {
+            copy_dir(item.path(), &dest);
+        } else if meta.is_file() {
+            ct_check_fatal!(std::fs::copy(item.path(), &dest));
         }
     }
 }
@@ -249,7 +247,7 @@ fn run_task(
         }
     }
 
-    let task = task_build(&env, task_name, did_build_workspace);
+    let task = task_build(env, task_name, did_build_workspace);
 
     ct_info!("run task: '{}'", task_name);
     std::env::set_var("CT_CUR_TASK", task_name);
@@ -380,24 +378,25 @@ fn get_newest_time<P: AsRef<Path>>(path: P) -> std::time::SystemTime {
         }
     }
 
-    for item in std::fs::read_dir(&path).expect("failed to read directory") {
-        if let Ok(item) = item {
-            let t = item.file_type().expect("failed to get file type");
+    for item in std::fs::read_dir(&path)
+        .expect("failed to read directory")
+        .flatten()
+    {
+        let t = item.file_type().expect("failed to get file type");
 
-            if t.is_dir() {
-                let updated = get_newest_time(item.path());
-                if updated > newest_time {
-                    newest_time = updated;
-                }
-            } else if t.is_file() {
-                let updated = item
-                    .metadata()
-                    .expect("failed to get metadata")
-                    .modified()
-                    .expect("failed to get modified time");
-                if updated > newest_time {
-                    newest_time = updated;
-                }
+        if t.is_dir() {
+            let updated = get_newest_time(item.path());
+            if updated > newest_time {
+                newest_time = updated;
+            }
+        } else if t.is_file() {
+            let updated = item
+                .metadata()
+                .expect("failed to get metadata")
+                .modified()
+                .expect("failed to get modified time");
+            if updated > newest_time {
+                newest_time = updated;
             }
         }
     }
