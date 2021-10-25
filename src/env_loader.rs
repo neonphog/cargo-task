@@ -126,14 +126,15 @@ fn find_cargo_task_work_dir() -> Result<PathBuf, &'static str> {
     let mut cargo_task_path = std::env::current_dir().map_err(|_| E)?;
 
     loop {
-        for item in std::fs::read_dir(&cargo_task_path).map_err(|_| E)? {
-            if let Ok(item) = item {
-                if !item.file_type().map_err(|_| E)?.is_dir() {
-                    continue;
-                }
-                if item.file_name() == CARGO_TASK_DIR {
-                    return Ok(cargo_task_path);
-                }
+        for item in std::fs::read_dir(&cargo_task_path)
+            .map_err(|_| E)?
+            .flatten()
+        {
+            if !item.file_type().map_err(|_| E)?.is_dir() {
+                continue;
+            }
+            if item.file_name() == CARGO_TASK_DIR {
+                return Ok(cargo_task_path);
             }
         }
 
@@ -151,57 +152,56 @@ fn enumerate_task_metadata<P: AsRef<Path>>(
 ) -> BTreeMap<String, CTTaskMeta> {
     let mut out = BTreeMap::new();
 
-    for item in
-        std::fs::read_dir(&cargo_task_path).expect("failed to read directory")
+    for item in std::fs::read_dir(&cargo_task_path)
+        .expect("failed to read directory")
+        .flatten()
     {
-        if let Ok(item) = item {
-            let file_name = item.file_name().to_string_lossy().to_string();
-            if &file_name == "cargo_task_util"
-                || &file_name == "target"
-                || file_name.starts_with('.')
-            {
-                continue;
-            }
+        let file_name = item.file_name().to_string_lossy().to_string();
+        if &file_name == "cargo_task_util"
+            || &file_name == "target"
+            || file_name.starts_with('.')
+        {
+            continue;
+        }
 
-            let file_type = ct_check_fatal!(item.file_type());
+        let file_type = ct_check_fatal!(item.file_type());
 
-            if file_type.is_file() && file_name.ends_with(".ct.rs") {
-                let path = item.path();
-                let meta = ct_check_fatal!(parse_metadata(&path));
-                let meta = CTTaskMeta {
-                    name: file_name[..file_name.len() - 6].to_string(),
-                    is_script: true,
-                    min_version: meta.min_version,
-                    path,
-                    default: meta.default,
-                    bootstrap: meta.bootstrap,
-                    help: meta.help,
-                    cargo_deps: meta.cargo_deps,
-                    task_deps: meta.task_deps,
-                };
-                out.insert(meta.name.clone(), meta);
-            } else if file_type.is_dir() {
-                let path = item.path();
-                let mut main_path = path.clone();
-                main_path.push("src");
-                main_path.push("main.rs");
-                let meta = ct_check_fatal!(parse_metadata(&main_path));
-                if meta.cargo_deps.is_some() {
-                    ct_fatal!("@ct-cargo-deps@ are illegal in directory-style task crates - just specify your deps in your Cargo.toml file");
-                }
-                let meta = CTTaskMeta {
-                    name: file_name,
-                    is_script: false,
-                    min_version: meta.min_version,
-                    path,
-                    default: meta.default,
-                    bootstrap: meta.bootstrap,
-                    help: meta.help,
-                    cargo_deps: None,
-                    task_deps: meta.task_deps,
-                };
-                out.insert(meta.name.clone(), meta);
+        if file_type.is_file() && file_name.ends_with(".ct.rs") {
+            let path = item.path();
+            let meta = ct_check_fatal!(parse_metadata(&path));
+            let meta = CTTaskMeta {
+                name: file_name[..file_name.len() - 6].to_string(),
+                is_script: true,
+                min_version: meta.min_version,
+                path,
+                default: meta.default,
+                bootstrap: meta.bootstrap,
+                help: meta.help,
+                cargo_deps: meta.cargo_deps,
+                task_deps: meta.task_deps,
+            };
+            out.insert(meta.name.clone(), meta);
+        } else if file_type.is_dir() {
+            let path = item.path();
+            let mut main_path = path.clone();
+            main_path.push("src");
+            main_path.push("main.rs");
+            let meta = ct_check_fatal!(parse_metadata(&main_path));
+            if meta.cargo_deps.is_some() {
+                ct_fatal!("@ct-cargo-deps@ are illegal in directory-style task crates - just specify your deps in your Cargo.toml file");
             }
+            let meta = CTTaskMeta {
+                name: file_name,
+                is_script: false,
+                min_version: meta.min_version,
+                path,
+                default: meta.default,
+                bootstrap: meta.bootstrap,
+                help: meta.help,
+                cargo_deps: None,
+                task_deps: meta.task_deps,
+            };
+            out.insert(meta.name.clone(), meta);
         }
     }
 
